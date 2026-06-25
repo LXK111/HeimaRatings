@@ -1,7 +1,7 @@
 import type { RankingAlgorithm, RankingEngineInput } from "@/lib/domain/types";
 import { runRankingEngine } from "@/lib/ranking-engine/adapter";
 import { badRequest, ok, serverError } from "@/lib/server/api-response";
-import { buildRankingEngineInput } from "@/lib/server/mock-repository";
+import { getRepository } from "@/lib/server/repositories/factory";
 
 const algorithms = new Set<RankingAlgorithm>(["elo", "sdr", "glicko2", "hybrid"]);
 
@@ -11,9 +11,10 @@ export async function POST(request: Request) {
     const algorithm = readAlgorithm(body?.algorithm);
     const weaponTypeId = typeof body?.weaponTypeId === "string" ? body.weaponTypeId : undefined;
     const tournamentId = typeof body?.tournamentId === "string" ? body.tournamentId : undefined;
+    const repository = getRepository();
     const input = isRankingEngineInput(body)
       ? { ...body, algorithm }
-      : buildRankingEngineInput(algorithm, weaponTypeId, tournamentId);
+      : await repository.buildRankingEngineInput({ algorithm, weaponTypeId, tournamentId });
 
     const result = await runRankingEngine(input);
     return ok(result);

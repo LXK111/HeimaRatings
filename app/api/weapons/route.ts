@@ -1,6 +1,7 @@
 import { ok } from "@/lib/server/api-response";
-import { listWeapons } from "@/lib/server/mock-repository";
+import { getRepository } from "@/lib/server/repositories/factory";
 
 export async function GET() {
-  return ok(listWeapons());
+  const repository = getRepository();
+  return ok(await repository.listWeapons());
 }

@@ -4,7 +4,7 @@ import { RankingBoard } from "@/components/rankings/ranking-board";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { PublicRankingPagePayload, WeaponType } from "@/lib/domain/types";
-import { getPublicRankingPage } from "@/lib/server/mock-repository";
+import { getRepository } from "@/lib/server/repositories/factory";
 
 interface PublicRankingPageProps {
   params: Promise<{ pageId: string }>;
@@ -14,7 +14,8 @@ interface PublicRankingPageProps {
 export default async function PublicRankingPage({ params, searchParams }: PublicRankingPageProps) {
   const { pageId } = await params;
   const query = await searchParams;
-  const page = getPublicRankingPage(pageId);
+  const repository = getRepository();
+  const page = await repository.getPublicRankingPage(pageId);
 
   if (!page || !page.enabled) {
     return (

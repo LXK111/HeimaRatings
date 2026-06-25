@@ -1,6 +1,7 @@
 import { ok } from "@/lib/server/api-response";
-import { listTournaments } from "@/lib/server/mock-repository";
+import { getRepository } from "@/lib/server/repositories/factory";
 
 export async function GET() {
-  return ok(listTournaments());
+  const repository = getRepository();
+  return ok(await repository.listTournaments());
 }

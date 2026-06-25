@@ -1,5 +1,5 @@
 import { ok } from "@/lib/server/api-response";
-import { listTournamentEvents } from "@/lib/server/mock-repository";
+import { getRepository } from "@/lib/server/repositories/factory";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -7,5 +7,6 @@ interface RouteContext {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { id } = await context.params;
-  return ok(listTournamentEvents(id));
+  const repository = getRepository();
+  return ok(await repository.listTournamentEvents(id));
 }

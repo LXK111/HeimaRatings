@@ -1,5 +1,5 @@
 import { ok } from "@/lib/server/api-response";
-import { getRankingSnapshot } from "@/lib/server/mock-repository";
+import { getRepository } from "@/lib/server/repositories/factory";
 
 interface RouteContext {
   params: Promise<{ snapshotId: string }>;
@@ -7,5 +7,6 @@ interface RouteContext {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { snapshotId } = await context.params;
-  return ok(getRankingSnapshot(snapshotId));
+  const repository = getRepository();
+  return ok(await repository.getRankingSnapshot(snapshotId));
 }

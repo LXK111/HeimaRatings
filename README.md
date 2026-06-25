@@ -10,6 +10,7 @@
 | v0.4 | 2026-06-25 | TRAE | 更新阶段 5 公开榜单与嵌入页发布展示闭环状态 |
 | v0.5 | 2026-06-25 | TRAE | 更新阶段 6 本地验收闭环状态和验收命令 |
 | v0.6 | 2026-06-25 | TRAE | 将 `verify` 调整为自启动临时生产服务的完整本地验收命令 |
+| v0.7 | 2026-06-25 | TRAE | 更新阶段 7 仓储抽象与持久化边界状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -37,7 +38,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 6：测试、部署与验收。
+当前已推进到阶段 7：仓储抽象与持久化边界。
 
 已完成阶段：
 
@@ -48,6 +49,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 4：在比赛录入页实现页面临时闭环，支持录入比赛草稿、本地追加、选择武器和算法、重新计算并展示排名结果。
 - 阶段 5：实现公开榜单与嵌入页发布展示闭环，支持公开 URL、武器切换、iframe 嵌入代码和紧凑嵌入页。
 - 阶段 6：新增本地 smoke check 和自启动生产服务的 `verify` 验收命令，形成本地可复现、可验证、可交付闭环。
+- 阶段 7：新增 Repository 接口、MockRepository、SupabaseRepository 骨架和仓储工厂，API 与公开展示页改为通过仓储边界访问数据。
 
 当前阶段边界：
 
@@ -55,6 +57,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 当前不写入 Supabase。
 - 当前不保存排名快照。
 - 公开榜单和嵌入榜单已具备发布展示形态，但仍使用 Mock 数据。
+- 默认数据源为 Mock；Supabase 数据源只完成骨架和环境变量校验，尚未实现真实查询。
 
 ## 后续阶段
 
@@ -78,6 +81,24 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - **npm**: >= 9.0.0
 - **Python 3**: >= 3.8.0（排名算法依赖，运行时需要 `python3` 命令可用）
 - **数据库**: 当前阶段无需配置（使用 Mock Repository，后续接入 Supabase PostgreSQL）
+
+## 数据源配置
+
+默认使用 Mock 数据源：
+
+```bash
+HEIMA_RATINGS_DATA_SOURCE=mock
+```
+
+Supabase 数据源预留配置：
+
+```bash
+HEIMA_RATINGS_DATA_SOURCE=supabase
+NEXT_PUBLIC_SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+当前阶段 `supabase` 模式只做骨架和环境变量校验，真实查询和写入会在后续阶段实现。
 
 ## 编译运行指令
 
@@ -125,6 +146,7 @@ HeimaRatings/
   database/               数据库迁移和种子数据
   docs/                   工程阶段文档和设计规格
   lib/                    领域类型、数据库类型、服务端仓储、Ranking Engine 适配
+  lib/server/repositories/ Repository 接口、Mock 实现、Supabase 骨架和工厂
   rating-algorithm/       Elo、SDR、Glicko-2、Hybrid 四种排名算法实现
   scripts/                Python Ranking Engine runner
 ```

@@ -1,5 +1,5 @@
 import { notFound, ok } from "@/lib/server/api-response";
-import { getTournament } from "@/lib/server/mock-repository";
+import { getRepository } from "@/lib/server/repositories/factory";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -7,7 +7,8 @@ interface RouteContext {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { id } = await context.params;
-  const tournament = getTournament(id);
+  const repository = getRepository();
+  const tournament = await repository.getTournament(id);
 
   if (!tournament) {
     return notFound("Tournament not found");
