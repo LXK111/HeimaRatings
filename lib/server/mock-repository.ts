@@ -1,4 +1,4 @@
-import type { RankingAlgorithm, RankingEngineInput } from "@/lib/domain/types";
+import type { PublicRankingPagePayload, RankingAlgorithm, RankingEngineInput } from "@/lib/domain/types";
 import {
   matches,
   players,
@@ -47,15 +47,35 @@ export function getRankingSnapshot(snapshotId: string) {
   };
 }
 
-export function getPublicRankingPage(pageId: string) {
-  const weapon = weaponTypes[0];
+export function getPublicRankingPage(pageId: string): PublicRankingPagePayload | undefined {
+  if (pageId !== "demo") {
+    return undefined;
+  }
+
+  const enabledWeapons = weaponTypes.filter((weapon) => weapon.enabled);
+  const defaultWeaponTypeId = "weapon-longsword";
+  const publicUrl = `/public/rankings/${pageId}`;
+  const embedUrl = `/embed/rankings/${pageId}`;
+
   return {
     pageId,
     title: "HEMA 春季积分赛公开榜单",
-    weapon,
+    enabled: true,
+    theme: "dark",
+    defaultWeaponTypeId,
+    weapons: enabledWeapons,
+    rankingsByWeapon: enabledWeapons.reduce<Record<string, typeof rankingsByWeapon[string]>>(
+      (acc, weapon) => {
+        acc[weapon.id] = rankingsByWeapon[weapon.id] ?? [];
+        return acc;
+      },
+      {}
+    ),
     algorithm: "hybrid" satisfies RankingAlgorithm,
     generatedAt: rankingSnapshots[0]?.generatedAt,
-    items: rankingsByWeapon[weapon.id] ?? []
+    publicUrl,
+    embedUrl,
+    iframeCode: `<iframe src="${embedUrl}" title="HEMA Rankings" width="100%" height="640" style="border:0;border-radius:24px;"></iframe>`
   };
 }
 

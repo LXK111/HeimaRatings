@@ -232,3 +232,18 @@ export interface RankingRow {
   wins: number;
   losses: number;
 }
+
+export interface PublicRankingPagePayload {
+  pageId: string;
+  title: string;
+  enabled: boolean;
+  theme: PublicPageTheme;
+  defaultWeaponTypeId: string;
+  weapons: WeaponType[];
+  rankingsByWeapon: Record<string, RankingRow[]>;
+  algorithm: RankingAlgorithm;
+  generatedAt?: string;
+  publicUrl: string;
+  embedUrl: string;
+  iframeCode: string;
+}

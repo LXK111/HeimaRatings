@@ -5,6 +5,7 @@
 | 版本 | 日期 | 作者 | 说明 |
 |------|------|------|------|
 | v0.1 | 2026-06-25 | TRAE | 创建阶段 6 设计规格，确认采用本地验收闭环方案 |
+| v0.2 | 2026-06-25 | TRAE | 根据验收问题调整 `verify`，改为自启动临时生产服务后执行 smoke check |
 
 ## 目标
 
@@ -34,7 +35,7 @@
 
 - 使用 Node 原生能力实现 `scripts/smoke_check.mjs`。
 - 通过本地 Next.js 服务访问关键 API。
-- 使用 `package.json` 脚本组合本地验收流程。
+- 使用 `package.json` 脚本组合本地验收流程，`verify` 自行启动临时生产服务，避免依赖外部 dev server 状态。
 - 用文档明确验收步骤、通过标准和已知限制。
 
 ## 脚本设计
@@ -58,15 +59,15 @@
 新增脚本：
 
 - `smoke`: 运行 `node scripts/smoke_check.mjs`。
-- `verify`: 串联 `npm run check`、`npm run build`、`npm run smoke`。
+- `verify`: 运行 `node scripts/verify_local.mjs`，串联类型检查、生产构建、临时生产服务和 smoke check。
 
-`verify` 需要用户先启动本地服务，或在文档中明确先运行 `npm run dev`。
+`smoke` 需要用户先启动本地服务；`verify` 不需要预启动服务，默认在 `3100` 端口启动临时生产服务。
 
 ## 验收流程
 
 1. 安装依赖：`npm install`。
-2. 启动服务：`npm run dev`。
-3. 新终端运行：`npm run verify`。
+2. 运行完整验收：`npm run verify`。
+3. 如只需快速检查运行中的服务，先启动服务：`npm run dev`，再新终端运行：`npm run smoke`。
 4. 检查输出全部通过。
 5. 如需生产模式验证，运行 `npm run build && npm run start` 后再运行 `npm run smoke`。
 
@@ -93,7 +94,7 @@
 - 更新 `README.md` 与 `mydocs/README.md`：
   - 当前阶段改为阶段 6。
   - 增加 `npm run smoke` 和 `npm run verify`。
-  - 说明验收前需要先启动本地服务。
+  - 说明 `smoke` 需要先启动本地服务，`verify` 会自启动临时生产服务。
 - 更新 `mydocs/HEMA排名网站代码生成记录与方案变化.md`。
 
 ## 后续衔接
