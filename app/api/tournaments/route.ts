@@ -1,7 +1,9 @@
-import { ok } from "@/lib/server/api-response";
+import { ok, withServerError } from "@/lib/server/api-response";
 import { getRepository } from "@/lib/server/repositories/factory";
 
 export async function GET() {
-  const repository = getRepository();
-  return ok(await repository.listTournaments());
+  return withServerError(async () => {
+    const repository = getRepository();
+    return ok(await repository.listTournaments());
+  });
 }

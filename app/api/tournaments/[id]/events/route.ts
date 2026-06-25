@@ -1,4 +1,4 @@
-import { ok } from "@/lib/server/api-response";
+import { ok, withServerError } from "@/lib/server/api-response";
 import { getRepository } from "@/lib/server/repositories/factory";
 
 interface RouteContext {
@@ -6,7 +6,9 @@ interface RouteContext {
 }
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { id } = await context.params;
-  const repository = getRepository();
-  return ok(await repository.listTournamentEvents(id));
+  return withServerError(async () => {
+    const { id } = await context.params;
+    const repository = getRepository();
+    return ok(await repository.listTournamentEvents(id));
+  });
 }

@@ -1,4 +1,4 @@
-import { ok } from "@/lib/server/api-response";
+import { ok, withServerError } from "@/lib/server/api-response";
 import { getRepository } from "@/lib/server/repositories/factory";
 
 interface RouteContext {
@@ -6,7 +6,9 @@ interface RouteContext {
 }
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { snapshotId } = await context.params;
-  const repository = getRepository();
-  return ok(await repository.getRankingSnapshot(snapshotId));
+  return withServerError(async () => {
+    const { snapshotId } = await context.params;
+    const repository = getRepository();
+    return ok(await repository.getRankingSnapshot(snapshotId));
+  });
 }

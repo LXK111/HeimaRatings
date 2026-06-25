@@ -129,7 +129,7 @@ export function MatchWorkbench({ tournamentId }: MatchWorkbenchProps) {
       }
 
       setMatches((current) => [...current, payload.data]);
-      setMessage("比赛已加入本次页面计算队列，尚未写入数据库。");
+      setMessage("比赛已保存并加入当前计算队列。");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "比赛提交失败");
     } finally {
