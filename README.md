@@ -6,6 +6,7 @@
 |------|------|------|------|
 | v0.1 | 2026-06-24 | TRAE | 创建 README，记录阶段 0 工程状态 |
 | v0.2 | 2026-06-24 | TRAE | 更新当前阶段、后续阶段、遗留 TODO，并补充文档记录位置提醒 |
+| v0.3 | 2026-06-25 | TRAE | 将 rating-algorithm 目录移入 HeimaRatings，修改 runner 和 adapter 路径引用，使项目完全自包含 |
 
 ## 重要提醒：文档记录位置
 
@@ -68,14 +69,41 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 增加接口测试和 Ranking Engine 输入输出回归测试。
 - 部署前确认运行环境是否支持 `python3`，或将 Python Ranking Engine 独立服务化。
 
-## 常用命令
+## 编译运行依赖环境
+
+- **Node.js**: >= 18.18.0（Next.js 要求）
+- **npm**: >= 9.0.0
+- **Python 3**: >= 3.8.0（排名算法依赖，运行时需要 `python3` 命令可用）
+- **数据库**: 当前阶段无需配置（使用 Mock Repository，后续接入 Supabase PostgreSQL）
+
+## 编译运行指令
 
 ```bash
+# 进入项目目录
+cd HeimaRatings
+
+# 安装 Node.js 依赖
 npm install
+
+# 开发模式运行（自动热重载）
 npm run dev
+
+# TypeScript 类型检查
 npm run check
+
+# ESLint 代码检查
+npm run lint
+
+# 生产构建
 npm run build
+
+# 生产模式运行（需先执行 build）
+npm run start
 ```
+
+访问地址：`http://localhost:3000`
+
+**注意**：排名计算功能依赖本机 `python3`；若环境中 Python 命令不是 `python3`（如 Windows 下为 `python`），需修改 `lib/ranking-engine/adapter.ts` 中的 spawn 命令。
 
 ## 关键目录
 
@@ -86,5 +114,6 @@ HeimaRatings/
   database/               数据库迁移和种子数据
   docs/                   工程阶段文档和设计规格
   lib/                    领域类型、数据库类型、服务端仓储、Ranking Engine 适配
+  rating-algorithm/       Elo、SDR、Glicko-2、Hybrid 四种排名算法实现
   scripts/                Python Ranking Engine runner
 ```

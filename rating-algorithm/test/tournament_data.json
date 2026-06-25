@@ -1,0 +1,336 @@
+{
+  "tournament": {
+    "name": "HEMA Championship 2026",
+    "format": "Single Elimination",
+    "players_count": 32,
+    "rounds": 5
+  },
+  "players": [
+    {
+      "name": "选手1",
+      "rating": 1472
+    },
+    {
+      "name": "选手2",
+      "rating": 1421
+    },
+    {
+      "name": "选手3",
+      "rating": 1503
+    },
+    {
+      "name": "选手4",
+      "rating": 1782
+    },
+    {
+      "name": "选手5",
+      "rating": 1461
+    },
+    {
+      "name": "选手6",
+      "rating": 1557
+    },
+    {
+      "name": "选手7",
+      "rating": 1491
+    },
+    {
+      "name": "选手8",
+      "rating": 1500
+    },
+    {
+      "name": "选手9",
+      "rating": 1780
+    },
+    {
+      "name": "选手10",
+      "rating": 1470
+    },
+    {
+      "name": "选手11",
+      "rating": 1437
+    },
+    {
+      "name": "选手12",
+      "rating": 1633
+    },
+    {
+      "name": "选手13",
+      "rating": 1613
+    },
+    {
+      "name": "选手14",
+      "rating": 1608
+    },
+    {
+      "name": "选手15",
+      "rating": 1798
+    },
+    {
+      "name": "选手16",
+      "rating": 1526
+    },
+    {
+      "name": "选手17",
+      "rating": 1468
+    },
+    {
+      "name": "选手18",
+      "rating": 1707
+    },
+    {
+      "name": "选手19",
+      "rating": 1478
+    },
+    {
+      "name": "选手20",
+      "rating": 1764
+    },
+    {
+      "name": "选手21",
+      "rating": 1564
+    },
+    {
+      "name": "选手22",
+      "rating": 1752
+    },
+    {
+      "name": "选手23",
+      "rating": 1463
+    },
+    {
+      "name": "选手24",
+      "rating": 1621
+    },
+    {
+      "name": "选手25",
+      "rating": 1601
+    },
+    {
+      "name": "选手26",
+      "rating": 1430
+    },
+    {
+      "name": "选手27",
+      "rating": 1441
+    },
+    {
+      "name": "选手28",
+      "rating": 1405
+    },
+    {
+      "name": "选手29",
+      "rating": 1426
+    },
+    {
+      "name": "选手30",
+      "rating": 1483
+    },
+    {
+      "name": "选手31",
+      "rating": 1753
+    },
+    {
+      "name": "选手32",
+      "rating": 1797
+    }
+  ],
+  "matches": [
+    [
+      {
+        "player1": "选手26",
+        "player2": "选手9",
+        "score1": 6,
+        "score2": 7
+      },
+      {
+        "player1": "选手8",
+        "player2": "选手13",
+        "score1": 9,
+        "score2": 6
+      },
+      {
+        "player1": "选手24",
+        "player2": "选手21",
+        "score1": 9,
+        "score2": 8
+      },
+      {
+        "player1": "选手5",
+        "player2": "选手27",
+        "score1": 5,
+        "score2": 4
+      },
+      {
+        "player1": "选手15",
+        "player2": "选手23",
+        "score1": 9,
+        "score2": 7
+      },
+      {
+        "player1": "选手25",
+        "player2": "选手19",
+        "score1": 8,
+        "score2": 6
+      },
+      {
+        "player1": "选手28",
+        "player2": "选手6",
+        "score1": 6,
+        "score2": 7
+      },
+      {
+        "player1": "选手22",
+        "player2": "选手32",
+        "score1": 7,
+        "score2": 5
+      },
+      {
+        "player1": "选手7",
+        "player2": "选手12",
+        "score1": 5,
+        "score2": 1
+      },
+      {
+        "player1": "选手17",
+        "player2": "选手11",
+        "score1": 7,
+        "score2": 3
+      },
+      {
+        "player1": "选手3",
+        "player2": "选手1",
+        "score1": 8,
+        "score2": 4
+      },
+      {
+        "player1": "选手16",
+        "player2": "选手30",
+        "score1": 6,
+        "score2": 2
+      },
+      {
+        "player1": "选手20",
+        "player2": "选手2",
+        "score1": 5,
+        "score2": 3
+      },
+      {
+        "player1": "选手29",
+        "player2": "选手31",
+        "score1": 5,
+        "score2": 6
+      },
+      {
+        "player1": "选手18",
+        "player2": "选手4",
+        "score1": 7,
+        "score2": 3
+      },
+      {
+        "player1": "选手10",
+        "player2": "选手14",
+        "score1": 7,
+        "score2": 6
+      }
+    ],
+    [
+      {
+        "player1": "选手31",
+        "player2": "选手17",
+        "score1": 5,
+        "score2": 3
+      },
+      {
+        "player1": "选手8",
+        "player2": "选手7",
+        "score1": 7,
+        "score2": 6
+      },
+      {
+        "player1": "选手15",
+        "player2": "选手22",
+        "score1": 8,
+        "score2": 7
+      },
+      {
+        "player1": "选手16",
+        "player2": "选手3",
+        "score1": 8,
+        "score2": 4
+      },
+      {
+        "player1": "选手9",
+        "player2": "选手24",
+        "score1": 8,
+        "score2": 7
+      },
+      {
+        "player1": "选手5",
+        "player2": "选手6",
+        "score1": 7,
+        "score2": 8
+      },
+      {
+        "player1": "选手20",
+        "player2": "选手10",
+        "score1": 6,
+        "score2": 4
+      },
+      {
+        "player1": "选手18",
+        "player2": "选手25",
+        "score1": 9,
+        "score2": 6
+      }
+    ],
+    [
+      {
+        "player1": "选手31",
+        "player2": "选手6",
+        "score1": 7,
+        "score2": 3
+      },
+      {
+        "player1": "选手8",
+        "player2": "选手9",
+        "score1": 7,
+        "score2": 5
+      },
+      {
+        "player1": "选手15",
+        "player2": "选手16",
+        "score1": 7,
+        "score2": 3
+      },
+      {
+        "player1": "选手20",
+        "player2": "选手18",
+        "score1": 8,
+        "score2": 5
+      }
+    ],
+    [
+      {
+        "player1": "选手31",
+        "player2": "选手8",
+        "score1": 9,
+        "score2": 6
+      },
+      {
+        "player1": "选手20",
+        "player2": "选手15",
+        "score1": 9,
+        "score2": 5
+      }
+    ],
+    [
+      {
+        "player1": "选手20",
+        "player2": "选手31",
+        "score1": 9,
+        "score2": 6
+      }
+    ]
+  ]
+}

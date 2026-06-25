@@ -17,7 +17,7 @@ def load_calculator(algorithm):
         raise ValueError(f"Unsupported algorithm: {algorithm}")
 
     relative_path, class_name = ALGORITHMS[algorithm]
-    algorithm_file = Path(__file__).resolve().parents[2] / "rating-algorithm" / relative_path
+    algorithm_file = Path(__file__).resolve().parents[1] / "rating-algorithm" / relative_path
 
     spec = importlib.util.spec_from_file_location(f"hema_{algorithm}", algorithm_file)
     if spec is None or spec.loader is None:

@@ -69,7 +69,7 @@ export async function runRankingEngine(input: RankingEngineInput): Promise<Ranki
 function runPython(input: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn("python3", [runnerPath], {
-      cwd: path.join(process.cwd(), ".."),
+      cwd: process.cwd(),
       stdio: ["pipe", "pipe", "pipe"]
     });
 
