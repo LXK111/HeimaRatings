@@ -1,6 +1,7 @@
 import { RankingBoard } from "@/components/rankings/ranking-board";
 import type { PublicRankingPagePayload, WeaponType } from "@/lib/domain/types";
 import { getRepository } from "@/lib/server/repositories/factory";
+import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 interface EmbedRankingPageProps {
   params: Promise<{ pageId: string }>;
@@ -10,7 +11,7 @@ interface EmbedRankingPageProps {
 export default async function EmbedRankingPage({ params, searchParams }: EmbedRankingPageProps) {
   const { pageId } = await params;
   const query = await searchParams;
-  const repository = getRepository();
+  const repository = getRepository(await getServerRepositoryContext());
   const page = await repository.getPublicRankingPage(pageId);
 
   if (!page || !page.enabled) {

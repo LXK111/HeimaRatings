@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { RankingAlgorithm, RankingEngineInput } from "@/lib/domain/types";
 import { runRankingEngine } from "@/lib/ranking-engine/adapter";
 import { badRequest, ok, serverError } from "@/lib/server/api-response";
+import { readRepositoryContextFromRequest } from "@/lib/server/repositories/context";
 import { getRepository } from "@/lib/server/repositories/factory";
 
 const algorithms = new Set<RankingAlgorithm>(["elo", "sdr", "glicko2", "hybrid"]);
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
     const eventId = typeof body?.eventId === "string" ? body.eventId : undefined;
     const persistSnapshot = body?.persistSnapshot === true;
     const publishPageId = typeof body?.publishPageId === "string" ? body.publishPageId : undefined;
-    const repository = getRepository();
+    const repository = getRepository(readRepositoryContextFromRequest(request));
     const input = !persistSnapshot && isRankingEngineInput(body)
       ? { ...body, algorithm }
       : await repository.buildRankingEngineInput({ algorithm, weaponTypeId, tournamentId, eventId });

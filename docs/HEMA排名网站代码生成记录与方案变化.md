@@ -35,6 +35,7 @@
 | v2.9 | 2026-06-29 | Codex | 执行阶段 16，补充数据库级多组织隔离约束 |
 | v3.0 | 2026-06-29 | Codex | 执行阶段 17，新增真库组织隔离验收脚本 |
 | v3.1 | 2026-06-29 | Codex | 执行阶段 18，新增组织成员与 RLS 基础策略 |
+| v3.2 | 2026-06-29 | Codex | 执行阶段 19，接入请求级组织上下文 |
 
 ## 1. 文档目的
 
@@ -157,6 +158,9 @@ HeimaRatings/
 验证记录：
 
 - `npm run check`：通过，TypeScript 无错误。
+- `git diff --check`：通过，无空白格式问题。
+- `npm run build`：通过，Next.js 生产构建成功。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
 - `npm run build`：通过，Next.js 生产构建成功。
 - `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
 - Supabase 只读 API 验证：通过，`/api/weapons`、`/api/players`、`/api/tournaments`、`/api/public/rankings/demo` 均返回 200。
@@ -734,3 +738,32 @@ HeimaRatings/
 
 - 多组织隔离从“应用层过滤 + 数据库一致性约束”继续推进到“数据库访问策略基础”。
 - 登录 UI、用户 JWT Repository 和组织切换仍留到后续阶段。
+
+### 阶段 19：请求级组织上下文
+
+方案细节：
+
+- 阶段 19 的目标是把“当前组织”从进程级环境变量推进到请求边界。
+- API Route 从请求 header/cookie 读取组织上下文。
+- Server Page 从 Next.js `headers()` / `cookies()` 读取组织上下文。
+- Supabase Repository 优先使用请求传入的 `organizationId` 或 `organizationSlug`，缺省时再回退环境变量。
+- 现有 service role Repository 不切换到用户 JWT，避免未完成登录系统前打断 MVP。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/lib/server/repositories/context.ts`。
+- 已新增 `HeimaRatings/lib/server/request-context.ts`。
+- 已更新 `HeimaRatings/lib/server/repositories/factory.ts`，支持按请求上下文创建 Supabase Repository。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，支持请求级组织 ID/slug 解析。
+- 已更新管理端 Server Page 和 API Route，调用 Repository 时携带请求上下文。
+- 已创建 `HeimaRatings/docs/stage-19.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `npm run check`：通过，TypeScript 无错误。
+
+方案变化：
+
+- 当前组织来源从单一 `HEIMA_RATINGS_ORGANIZATION_SLUG` 扩展为请求上下文优先。
+- 登录 UI、Supabase Auth session、用户 JWT Repository 和组织切换 UI 继续留到后续阶段。

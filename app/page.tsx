@@ -5,6 +5,7 @@ import { ActionLink } from "@/components/ui/action-link";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getRepository } from "@/lib/server/repositories/factory";
+import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 const nextSteps = [
   "阶段 1：落地 Supabase 数据模型，加入 weapon_types 与 player_weapon_ratings",
@@ -15,7 +16,7 @@ const nextSteps = [
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const repository = getRepository();
+  const repository = getRepository(await getServerRepositoryContext());
   const [weaponTypes, players, tournaments, publicPage] = await Promise.all([
     repository.listWeapons(),
     repository.listPlayers(),

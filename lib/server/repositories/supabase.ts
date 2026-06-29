@@ -23,6 +23,7 @@ import type {
   WeaponTypeRow
 } from "@/lib/database/types";
 import { createServerSupabaseClient } from "@/lib/server/supabase/client";
+import { normalizeRepositoryContext } from "@/lib/server/repositories/context";
 import type {
   AppRepository,
   BuildRankingEngineInputOptions,
@@ -30,6 +31,7 @@ import type {
   CreateRankingSnapshotInput,
   RankingSnapshotPayload
 } from "@/lib/server/repositories/types";
+import type { RepositoryContext } from "@/lib/server/repositories/context";
 
 const demoTournamentId = "30000000-0000-0000-0000-000000000001";
 const defaultOrganizationSlug = "hema-ratings-demo";
@@ -53,7 +55,12 @@ const reverseAliases = Object.fromEntries(
 
 export class SupabaseRepository implements AppRepository {
   private readonly client = createServerSupabaseClient();
+  private readonly context: RepositoryContext;
   private organizationIdPromise: Promise<string> | undefined;
+
+  constructor(context: RepositoryContext = {}) {
+    this.context = normalizeRepositoryContext(context);
+  }
 
   async listWeapons() {
     const organizationId = await this.getOrganizationId();
@@ -520,7 +527,27 @@ export class SupabaseRepository implements AppRepository {
   }
 
   private async resolveOrganizationId() {
-    const slug = process.env.HEIMA_RATINGS_ORGANIZATION_SLUG ?? defaultOrganizationSlug;
+    if (this.context.organizationId) {
+      const organization = await this.querySingle<OrganizationRow>(
+        this.client
+          .from("organizations")
+          .select("*")
+          .eq("id", this.context.organizationId)
+          .maybeSingle(),
+        "resolveOrganizationId.byId"
+      );
+
+      if (!organization) {
+        throw new Error(`Organization not found for request organization id=${this.context.organizationId}`);
+      }
+
+      return organization.id;
+    }
+
+    const slug =
+      this.context.organizationSlug ??
+      process.env.HEIMA_RATINGS_ORGANIZATION_SLUG ??
+      defaultOrganizationSlug;
     const organization = await this.querySingle<OrganizationRow>(
       this.client.from("organizations").select("*").eq("slug", slug).maybeSingle(),
       "resolveOrganizationId"

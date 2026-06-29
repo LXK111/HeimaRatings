@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { MatchWorkbench } from "@/components/matches/match-workbench";
 import { getRepository } from "@/lib/server/repositories/factory";
+import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ interface MatchesPageProps {
 
 export default async function MatchesPage({ params }: MatchesPageProps) {
   const { id } = await params;
-  const repository = getRepository();
+  const repository = getRepository(await getServerRepositoryContext());
   const [weapons, players, events] = await Promise.all([
     repository.listWeapons(),
     repository.listPlayers(),

@@ -3,6 +3,7 @@ import { ActionLink } from "@/components/ui/action-link";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getRepository } from "@/lib/server/repositories/factory";
+import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ interface TournamentDetailPageProps {
 
 export default async function TournamentDetailPage({ params }: TournamentDetailPageProps) {
   const { id } = await params;
-  const repository = getRepository();
+  const repository = getRepository(await getServerRepositoryContext());
   const [tournament, tournamentEvents, matches, weaponTypes] = await Promise.all([
     repository.getTournament(id),
     repository.listTournamentEvents(id),

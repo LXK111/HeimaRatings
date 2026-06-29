@@ -2,11 +2,12 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { getRepository } from "@/lib/server/repositories/factory";
+import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlayersPage() {
-  const repository = getRepository();
+  const repository = getRepository(await getServerRepositoryContext());
   const [players, weaponTypes] = await Promise.all([
     repository.listPlayers(),
     repository.listWeapons()
