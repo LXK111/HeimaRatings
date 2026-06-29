@@ -2,9 +2,22 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { tournamentEvents, weaponTypes } from "@/lib/mock/dashboard-data";
+import { getRepository } from "@/lib/server/repositories/factory";
 
-export default function TournamentEventsPage() {
+export const dynamic = "force-dynamic";
+
+interface TournamentEventsPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function TournamentEventsPage({ params }: TournamentEventsPageProps) {
+  const { id } = await params;
+  const repository = getRepository();
+  const [tournamentEvents, weaponTypes] = await Promise.all([
+    repository.listTournamentEvents(id),
+    repository.listWeapons()
+  ]);
+
   return (
     <AppShell
       eyebrow="Tournament Events"

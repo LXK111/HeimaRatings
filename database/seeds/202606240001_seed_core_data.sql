@@ -66,3 +66,32 @@ values
   ('40000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '长剑公开组', 'single_elimination', 'active'),
   ('40000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '军刀公开组', 'single_elimination', 'active')
 on conflict (tournament_id, name) do nothing;
+
+insert into public_pages (
+  organization_id,
+  page_id,
+  tournament_id,
+  snapshot_id,
+  default_weapon_type_id,
+  title,
+  theme,
+  enabled
+)
+values (
+  '00000000-0000-0000-0000-000000000001',
+  'demo',
+  '30000000-0000-0000-0000-000000000001',
+  null,
+  '10000000-0000-0000-0000-000000000001',
+  'HEMA 春季积分赛公开榜单',
+  'dark',
+  true
+)
+on conflict (page_id) do update
+set
+  tournament_id = excluded.tournament_id,
+  default_weapon_type_id = excluded.default_weapon_type_id,
+  title = excluded.title,
+  theme = excluded.theme,
+  enabled = excluded.enabled,
+  updated_at = now();

@@ -12,6 +12,14 @@
 | v0.6 | 2026-06-25 | TRAE | 将 `verify` 调整为自启动临时生产服务的完整本地验收命令 |
 | v0.7 | 2026-06-25 | TRAE | 更新阶段 7 仓储抽象与持久化边界状态 |
 | v0.8 | 2026-06-25 | TRAE | 更新阶段 8 Supabase Repository 与比赛持久化状态 |
+| v0.9 | 2026-06-29 | TRAE | 更新阶段 9 Supabase 真库联调验证状态 |
+| v1.0 | 2026-06-29 | Codex | 更新阶段 10 排名快照发布闭环状态 |
+| v1.1 | 2026-06-29 | Codex | 更新阶段 11 榜单发布操作闭环状态 |
+| v1.2 | 2026-06-29 | Codex | 补充阶段 10/11 Supabase 真库验收结果 |
+| v1.3 | 2026-06-29 | Codex | 更新阶段 12 比赛工作台组件拆分状态 |
+| v1.4 | 2026-06-29 | Codex | 更新阶段 13 公开页多武器快照模型状态 |
+| v1.5 | 2026-06-29 | Codex | 更新阶段 14 管理端页面 Repository/API 化状态 |
+| v1.6 | 2026-06-29 | Codex | 更新阶段 15 多组织数据隔离基线状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -39,7 +47,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 8：Supabase Repository 与比赛持久化。
+当前已推进到阶段 15：多组织数据隔离基线。
 
 已完成阶段：
 
@@ -52,26 +60,40 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 6：新增本地 smoke check 和自启动生产服务的 `verify` 验收命令，形成本地可复现、可验证、可交付闭环。
 - 阶段 7：新增 Repository 接口、MockRepository、SupabaseRepository 骨架和仓储工厂，API 与公开展示页改为通过仓储边界访问数据。
 - 阶段 8：实现 Supabase Repository 基础读取、比赛写入和 Ranking Engine 输入构造，默认 Mock 模式继续可运行。
+- 阶段 9：完成 Supabase 真库联调验证，核心读写链路（基础查询、比赛写入、排名计算）在 Supabase 模式下闭环。
+- 阶段 10：实现排名快照写入、公开页发布 upsert 和公开榜单读取真实快照的闭环。
+- 阶段 11：在比赛工作台接入“发布公开榜单”操作，让管理员可从页面发布最新排名快照。
+- 阶段 12：拆分比赛工作台大组件，将录入表单、比赛列表、计算/发布控制区和排名结果表格独立成组件。
+- 阶段 13：新增 `public_page_snapshots` 模型，让一个公开页可以按武器类型关联多个最新排名快照。
+- 阶段 14：管理端页面改为通过 Repository 读取数据，页面层不再直接依赖 Mock 数据模块。
+- 阶段 15：Supabase Repository 增加当前组织上下文，主要读写路径按组织隔离。
 
 当前阶段边界：
 
 - 默认 Mock 模式下新增比赛只保存在当前页面状态，刷新页面会丢失。
-- Supabase 模式下新增比赛会通过 `SupabaseRepository` 写入 `matches` 表。
-- 当前不保存排名快照。
-- 公开榜单和嵌入榜单已具备发布展示形态，但仍使用 Mock 数据。
-- 默认数据源为 Mock；Supabase 数据源已实现基础读取和比赛写入，真实联调需要配置 Supabase 环境变量并执行数据库迁移/种子数据。
+- Supabase 模式下新增比赛会通过 `SupabaseRepository` 写入 `matches` 表，并可从真库读取回显。
+- Supabase 模式下排名计算从真库读取选手积分和比赛结果，调用 Python Ranking Engine 返回结果。
+- `/api/rankings/calculate` 默认只计算；显式传入 `persistSnapshot: true` 时会保存 `ranking_snapshots` 和 `ranking_snapshot_items`。
+- 传入 `publishPageId` 时，Supabase 模式会 upsert 对应 `public_pages` 并指向最新快照。
+- 比赛工作台已区分“重新计算排名”和“发布公开榜单”；发布成功后展示快照 ID 和公开页路径。
+- 比赛工作台已拆分为多个子组件，父组件继续保留业务流程控制。
+- 公开榜单和嵌入榜单已具备从多个武器快照读取排名的代码路径；Supabase 真库需要先执行阶段 13 migration。
+- 管理端首页、武器、选手、赛事、项目、比赛录入和排名页已切换到 Repository 数据源。
+- Supabase Repository 会通过 `HEIMA_RATINGS_ORGANIZATION_SLUG` 解析当前组织，未配置时默认使用 `hema-ratings-demo`。
+- Supabase 模式下武器、选手、赛事、比赛、排名计算、快照发布和公开页读取已按当前组织做应用层隔离。
+- 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
 
-- 后续增强：保存 `ranking_snapshots`，让公开榜单读取真实最新快照。
-- 后续增强：完善赛事编排、签表、淘汰晋级、项目级排名和多组织数据隔离。
+- 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
+- 后续增强：为选手、武器、赛事和项目增加真实创建/编辑表单。
+- 后续增强：完善赛事编排、签表、淘汰晋级和项目级排名。
+- 后续增强：为多组织隔离补充数据库级复合唯一约束、RLS 和认证上下文。
 
 ## 遗留 TODO
 
-- 配置真实 Supabase 项目并执行数据库迁移、种子数据和真库联调。
-- 将 `/api/rankings/calculate` 的计算结果保存为排名快照。
-- 改造 `/public/rankings/[pageId]` 与 `/embed/rankings/[pageId]`，读取真实快照而不是 Mock 数据。
-- 为阶段 4 客户端工作台拆分更细的表单、列表和排名结果组件，降低单文件复杂度。
+- 将比赛工作台的“发布目标 demo”改为可选择公开页。
+- 扩展公开页 payload，提供每个武器榜单各自的算法和生成时间。
 - 增加接口测试和 Ranking Engine 输入输出回归测试。
 - 部署前确认运行环境是否支持 `python3`，或将 Python Ranking Engine 独立服务化。
 
@@ -94,11 +116,12 @@ Supabase 数据源预留配置：
 
 ```bash
 HEIMA_RATINGS_DATA_SOURCE=supabase
+HEIMA_RATINGS_ORGANIZATION_SLUG=hema-ratings-demo
 NEXT_PUBLIC_SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
-当前阶段 `supabase` 模式已实现基础读取和比赛写入；没有真实 Supabase 配置时请保持默认 Mock 模式。
+当前阶段 `supabase` 模式已实现基础读取、比赛写入、排名快照保存、公开页发布和应用层组织隔离；没有真实 Supabase 配置时请保持默认 Mock 模式。
 
 ## 编译运行指令
 

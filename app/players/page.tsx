@@ -1,14 +1,22 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
-import { players, weaponTypes } from "@/lib/mock/dashboard-data";
+import { getRepository } from "@/lib/server/repositories/factory";
 
-export default function PlayersPage() {
+export const dynamic = "force-dynamic";
+
+export default async function PlayersPage() {
+  const repository = getRepository();
+  const [players, weaponTypes] = await Promise.all([
+    repository.listPlayers(),
+    repository.listWeapons()
+  ]);
+
   return (
     <AppShell
       eyebrow="Roster"
       title="选手管理"
-      description="展示选手基础信息和分武器积分摘要。阶段 2 使用 Mock 数据确认信息密度和表格结构。"
+      description="展示选手基础信息和分武器积分摘要。当前页面通过 Repository 数据源读取选手与武器积分。"
     >
       <Panel eyebrow="Fighters" title="选手名册">
         <DataTable

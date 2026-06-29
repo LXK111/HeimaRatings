@@ -2,14 +2,18 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { weaponTypes } from "@/lib/mock/dashboard-data";
+import { getRepository } from "@/lib/server/repositories/factory";
 
-export default function WeaponsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function WeaponsPage() {
+  const weaponTypes = await getRepository().listWeapons();
+
   return (
     <AppShell
       eyebrow="Weapon Registry"
       title="武器类型管理"
-      description="维护不同武器类型对应的独立积分池。阶段 2 先展示静态列表，后续阶段会接入创建、排序和启停接口。"
+      description="维护不同武器类型对应的独立积分池。当前页面通过 Repository 数据源展示武器状态。"
     >
       <Panel eyebrow="Pools" title="武器积分池">
         <DataTable

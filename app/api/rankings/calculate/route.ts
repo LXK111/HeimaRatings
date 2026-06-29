@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { RankingAlgorithm, RankingEngineInput } from "@/lib/domain/types";
 import { runRankingEngine } from "@/lib/ranking-engine/adapter";
 import { badRequest, ok, serverError } from "@/lib/server/api-response";
@@ -11,13 +12,32 @@ export async function POST(request: Request) {
     const algorithm = readAlgorithm(body?.algorithm);
     const weaponTypeId = typeof body?.weaponTypeId === "string" ? body.weaponTypeId : undefined;
     const tournamentId = typeof body?.tournamentId === "string" ? body.tournamentId : undefined;
+    const eventId = typeof body?.eventId === "string" ? body.eventId : undefined;
+    const persistSnapshot = body?.persistSnapshot === true;
+    const publishPageId = typeof body?.publishPageId === "string" ? body.publishPageId : undefined;
     const repository = getRepository();
-    const input = isRankingEngineInput(body)
+    const input = !persistSnapshot && isRankingEngineInput(body)
       ? { ...body, algorithm }
-      : await repository.buildRankingEngineInput({ algorithm, weaponTypeId, tournamentId });
+      : await repository.buildRankingEngineInput({ algorithm, weaponTypeId, tournamentId, eventId });
 
     const result = await runRankingEngine(input);
-    return ok(result);
+    if (!persistSnapshot) {
+      return ok(result);
+    }
+
+    const snapshot = await repository.createRankingSnapshot(
+      {
+        tournamentId: input.tournamentId,
+        weaponTypeId: input.weaponTypeId,
+        eventId: input.eventId,
+        algorithm: input.algorithm,
+        sourceHash: createSourceHash(input),
+        publishPageId
+      },
+      result
+    );
+
+    return ok({ result, snapshot, publishPageId });
   } catch (error) {
     if (error instanceof TypeError) {
       return badRequest(error.message);
@@ -60,4 +80,8 @@ function isRankingEngineInput(value: unknown): value is RankingEngineInput {
     Array.isArray(candidate.players) &&
     Array.isArray(candidate.matches)
   );
+}
+
+function createSourceHash(input: RankingEngineInput) {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }

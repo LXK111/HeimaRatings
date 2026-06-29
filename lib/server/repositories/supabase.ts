@@ -11,9 +11,11 @@ import type {
 } from "@/lib/domain/types";
 import type {
   MatchRow,
+  OrganizationRow,
   PlayerRow,
   PlayerWeaponRatingRow,
   PublicPageRow,
+  PublicPageSnapshotRow,
   RankingSnapshotItemRow,
   RankingSnapshotRow,
   TournamentEventRow,
@@ -30,7 +32,7 @@ import type {
 } from "@/lib/server/repositories/types";
 
 const demoTournamentId = "30000000-0000-0000-0000-000000000001";
-const demoOrganizationId = "00000000-0000-0000-0000-000000000001";
+const defaultOrganizationSlug = "hema-ratings-demo";
 
 const idAliases: Record<string, string> = {
   demo: demoTournamentId,
@@ -51,10 +53,16 @@ const reverseAliases = Object.fromEntries(
 
 export class SupabaseRepository implements AppRepository {
   private readonly client = createServerSupabaseClient();
+  private organizationIdPromise: Promise<string> | undefined;
 
   async listWeapons() {
+    const organizationId = await this.getOrganizationId();
     const data = await this.query<WeaponTypeRow[]>(
-      this.client.from("weapon_types").select("*").order("sort_order", { ascending: true }),
+      this.client
+        .from("weapon_types")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("sort_order", { ascending: true }),
       "listWeapons"
     );
 
@@ -62,12 +70,20 @@ export class SupabaseRepository implements AppRepository {
   }
 
   async listPlayers() {
+    const organizationId = await this.getOrganizationId();
     const players = await this.query<PlayerRow[]>(
-      this.client.from("players").select("*").order("name", { ascending: true }),
+      this.client
+        .from("players")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("name", { ascending: true }),
       "listPlayers.players"
     );
+    const playerIds = players.map((player) => player.id);
     const ratings = await this.query<PlayerWeaponRatingRow[]>(
-      this.client.from("player_weapon_ratings").select("*"),
+      playerIds.length > 0
+        ? this.client.from("player_weapon_ratings").select("*").in("player_id", playerIds)
+        : emptyResult<PlayerWeaponRatingRow[]>(),
       "listPlayers.ratings"
     );
     const ranksByWeapon = buildRanksByWeapon(ratings);
@@ -87,16 +103,29 @@ export class SupabaseRepository implements AppRepository {
   }
 
   async listTournaments() {
+    const organizationId = await this.getOrganizationId();
     const tournaments = await this.query<TournamentRow[]>(
-      this.client.from("tournaments").select("*").order("created_at", { ascending: false }),
+      this.client
+        .from("tournaments")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false }),
       "listTournaments.tournaments"
     );
+    const tournamentIds = tournaments.map((tournament) => tournament.id);
     const events = await this.query<TournamentEventRow[]>(
-      this.client.from("tournament_events").select("id,tournament_id,weapon_type_id,name,format,status,created_at,updated_at"),
+      tournamentIds.length > 0
+        ? this.client
+            .from("tournament_events")
+            .select("id,tournament_id,weapon_type_id,name,format,status,created_at,updated_at")
+            .in("tournament_id", tournamentIds)
+        : emptyResult<TournamentEventRow[]>(),
       "listTournaments.events"
     );
     const matches = await this.query<Pick<MatchRow, "id" | "tournament_id">[]>(
-      this.client.from("matches").select("id,tournament_id"),
+      tournamentIds.length > 0
+        ? this.client.from("matches").select("id,tournament_id").in("tournament_id", tournamentIds)
+        : emptyResult<Pick<MatchRow, "id" | "tournament_id">[]>(),
       "listTournaments.matches"
     );
 
@@ -118,6 +147,7 @@ export class SupabaseRepository implements AppRepository {
 
   async listTournamentEvents(tournamentId: string) {
     const resolvedTournamentId = resolveId(tournamentId);
+    await this.ensureTournamentInOrganization(resolvedTournamentId, "listTournamentEvents.tournament");
     const data = await this.query<TournamentEventRow[]>(
       this.client
         .from("tournament_events")
@@ -144,6 +174,7 @@ export class SupabaseRepository implements AppRepository {
 
   async listTournamentMatches(tournamentId: string) {
     const resolvedTournamentId = resolveId(tournamentId);
+    await this.ensureTournamentInOrganization(resolvedTournamentId, "listTournamentMatches.tournament");
     const matches = await this.query<MatchRow[]>(
       this.client
         .from("matches")
@@ -161,6 +192,7 @@ export class SupabaseRepository implements AppRepository {
   async createMatch(tournamentId: string, input: CreateMatchInput) {
     validateMatchInput(input);
     const resolvedTournamentId = resolveId(tournamentId);
+    const organizationId = await this.getOrganizationId();
     const event = await this.querySingle<TournamentEventRow>(
       this.client
         .from("tournament_events")
@@ -175,7 +207,12 @@ export class SupabaseRepository implements AppRepository {
     }
 
     const tournament = await this.querySingle<TournamentRow>(
-      this.client.from("tournaments").select("*").eq("id", resolvedTournamentId).maybeSingle(),
+      this.client
+        .from("tournaments")
+        .select("*")
+        .eq("id", resolvedTournamentId)
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
       "createMatch.tournament"
     );
     if (!tournament) {
@@ -225,12 +262,17 @@ export class SupabaseRepository implements AppRepository {
 
   async getRankingSnapshot(snapshotId: string) {
     const snapshot = await this.querySingle<RankingSnapshotRow>(
-      this.client.from("ranking_snapshots").select("*").eq("id", resolveId(snapshotId)).maybeSingle(),
+      this.client
+        .from("ranking_snapshots")
+        .select("*")
+        .eq("id", resolveId(snapshotId))
+        .maybeSingle(),
       "getRankingSnapshot.snapshot"
     );
     if (!snapshot) {
       throw new Error("Ranking snapshot not found");
     }
+    await this.ensureTournamentInOrganization(snapshot.tournament_id, "getRankingSnapshot.tournament");
 
     const items = await this.query<RankingSnapshotItemRow[]>(
       this.client
@@ -269,17 +311,28 @@ export class SupabaseRepository implements AppRepository {
     const algorithm = options.algorithm ?? "hybrid";
     const tournamentId = resolveId(options.tournamentId ?? demoTournamentId);
     const weaponTypeId = resolveId(options.weaponTypeId ?? "weapon-longsword");
+    const eventId = options.eventId ? resolveId(options.eventId) : undefined;
+    await this.ensureTournamentInOrganization(tournamentId, "buildRankingEngineInput.tournament");
+    await this.ensureWeaponInOrganization(weaponTypeId, "buildRankingEngineInput.weapon");
+    if (eventId) {
+      await this.ensureEventInTournament(eventId, tournamentId, weaponTypeId, "buildRankingEngineInput.event");
+    }
     const ratings = await this.query<PlayerWeaponRatingRow[]>(
       this.client.from("player_weapon_ratings").select("*").eq("weapon_type_id", weaponTypeId),
       "buildRankingEngineInput.ratings"
     );
     const players = await this.loadPlayersByIds(ratings.map((rating) => rating.player_id));
+    const scopedRatings = ratings.filter((rating) => players.has(rating.player_id));
+    let matchesQuery = this.client
+      .from("matches")
+      .select("*")
+      .eq("tournament_id", tournamentId)
+      .eq("weapon_type_id", weaponTypeId);
+    if (eventId) {
+      matchesQuery = matchesQuery.eq("event_id", eventId);
+    }
     const matches = await this.query<MatchRow[]>(
-      this.client
-        .from("matches")
-        .select("*")
-        .eq("tournament_id", tournamentId)
-        .eq("weapon_type_id", weaponTypeId)
+      matchesQuery
         .order("round", { ascending: true })
         .order("created_at", { ascending: true }),
       "buildRankingEngineInput.matches"
@@ -289,9 +342,9 @@ export class SupabaseRepository implements AppRepository {
     return {
       tournamentId: toPublicId(tournamentId),
       weaponTypeId: toPublicId(weaponTypeId),
-      eventId: options.eventId,
+      eventId: eventId ? toPublicId(eventId) : undefined,
       algorithm,
-      players: ratings.map((rating) => {
+      players: scopedRatings.map((rating) => {
         const player = players.get(rating.player_id);
         return {
           id: rating.player_id,
@@ -306,25 +359,117 @@ export class SupabaseRepository implements AppRepository {
   }
 
   async createRankingSnapshot(
-    _input: CreateRankingSnapshotInput,
-    _output: RankingEngineOutput
+    input: CreateRankingSnapshotInput,
+    output: RankingEngineOutput
   ): Promise<RankingSnapshotPayload> {
-    throw new Error("SupabaseRepository.createRankingSnapshot is reserved for stage 9.");
+    const tournamentId = resolveId(input.tournamentId);
+    const weaponTypeId = resolveId(input.weaponTypeId);
+    const eventId = input.eventId ? resolveId(input.eventId) : null;
+    const organizationId = await this.getOrganizationId();
+    await this.ensureWeaponInOrganization(weaponTypeId, "createRankingSnapshot.weapon");
+    if (eventId) {
+      await this.ensureEventInTournament(eventId, tournamentId, weaponTypeId, "createRankingSnapshot.event");
+    }
+    const tournament = await this.querySingle<TournamentRow>(
+      this.client
+        .from("tournaments")
+        .select("*")
+        .eq("id", tournamentId)
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      "createRankingSnapshot.tournament"
+    );
+    if (!tournament) {
+      throw new Error("Tournament not found");
+    }
+
+    const snapshot = await this.querySingle<RankingSnapshotRow>(
+      this.client
+        .from("ranking_snapshots")
+        .insert({
+          tournament_id: tournamentId,
+          weapon_type_id: weaponTypeId,
+          event_id: eventId,
+          algorithm: input.algorithm,
+          generated_at: output.generatedAt,
+          source_hash: input.sourceHash ?? null
+        })
+        .select("*")
+        .single(),
+      "createRankingSnapshot.snapshot"
+    );
+    if (!snapshot) {
+      throw new Error("createRankingSnapshot.snapshot failed: inserted snapshot was empty");
+    }
+
+    const items = output.rankings.map((ranking) => ({
+      snapshot_id: snapshot.id,
+      player_id: resolveId(ranking.playerId),
+      rank: ranking.rank,
+      rating: ranking.rating,
+      rd: ranking.rd ?? null,
+      sigma: ranking.sigma ?? null,
+      matches_count: ranking.matches,
+      wins_count: ranking.wins,
+      losses_count: ranking.losses,
+      draws_count: ranking.draws
+    }));
+
+    if (items.length > 0) {
+      await this.query<RankingSnapshotItemRow[]>(
+        this.client.from("ranking_snapshot_items").insert(items).select("*"),
+        "createRankingSnapshot.items"
+      );
+    }
+
+    if (input.publishPageId) {
+      const page = await this.findOrCreatePublicPage(
+        input.publishPageId,
+        tournament,
+        tournamentId,
+        weaponTypeId
+      );
+      try {
+        await this.publishSnapshotToPage(page.id, weaponTypeId, snapshot.id);
+      } catch (error) {
+        if (!isMissingPublicPageSnapshotsTable(error)) {
+          throw error;
+        }
+        await this.publishSnapshotToLegacyPage(page.id, weaponTypeId, snapshot.id);
+      }
+    }
+
+    return this.getRankingSnapshot(snapshot.id);
   }
 
   async getPublicRankingPage(pageId: string) {
+    const organizationId = await this.getOrganizationId();
     const page = await this.querySingle<PublicPageRow>(
-      this.client.from("public_pages").select("*").eq("page_id", pageId).maybeSingle(),
+      this.client
+        .from("public_pages")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("page_id", pageId)
+        .maybeSingle(),
       "getPublicRankingPage.page"
     );
     if (!page || !page.enabled) {
       return undefined;
     }
 
-    const weapons = await this.listWeapons();
-    const snapshot = page.snapshot_id ? await this.getRankingSnapshot(page.snapshot_id) : undefined;
+    const weapons = (await this.listWeapons()).filter((weapon) => weapon.enabled);
+    const pageSnapshots = await this.listPublicPageSnapshots(page.id);
+    const snapshots = await Promise.all(
+      pageSnapshots.map((pageSnapshot) => this.getRankingSnapshot(pageSnapshot.snapshot_id))
+    );
+    if (snapshots.length === 0 && page.snapshot_id) {
+      snapshots.push(await this.getRankingSnapshot(page.snapshot_id));
+    }
+    const primarySnapshot =
+      snapshots.find((snapshot) => snapshot.weaponTypeId === toPublicId(page.default_weapon_type_id ?? "")) ??
+      snapshots[0];
     const rankingsByWeapon: Record<string, RankingRow[]> = {};
-    if (snapshot) {
+    for (const snapshot of snapshots) {
       rankingsByWeapon[snapshot.weaponTypeId] = snapshot.items;
     }
 
@@ -339,8 +484,8 @@ export class SupabaseRepository implements AppRepository {
       defaultWeaponTypeId: toPublicId(page.default_weapon_type_id ?? weapons[0]?.id ?? ""),
       weapons,
       rankingsByWeapon,
-      algorithm: snapshot?.algorithm ?? "hybrid",
-      generatedAt: snapshot?.generatedAt,
+      algorithm: primarySnapshot?.algorithm ?? "hybrid",
+      generatedAt: primarySnapshot?.generatedAt,
       publicUrl,
       embedUrl,
       iframeCode: `<iframe src="${embedUrl}" title="HEMA Rankings" width="100%" height="640" style="border:0;border-radius:24px;"></iframe>`
@@ -353,12 +498,95 @@ export class SupabaseRepository implements AppRepository {
       return new Map<string, PlayerRow>();
     }
 
+    const organizationId = await this.getOrganizationId();
     const players = await this.query<PlayerRow[]>(
-      this.client.from("players").select("*").in("id", uniqueIds),
+      this.client
+        .from("players")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .in("id", uniqueIds),
       "loadPlayersByIds"
     );
 
     return new Map(players.map((player) => [player.id, player]));
+  }
+
+  private async getOrganizationId() {
+    if (!this.organizationIdPromise) {
+      this.organizationIdPromise = this.resolveOrganizationId();
+    }
+
+    return this.organizationIdPromise;
+  }
+
+  private async resolveOrganizationId() {
+    const slug = process.env.HEIMA_RATINGS_ORGANIZATION_SLUG ?? defaultOrganizationSlug;
+    const organization = await this.querySingle<OrganizationRow>(
+      this.client.from("organizations").select("*").eq("slug", slug).maybeSingle(),
+      "resolveOrganizationId"
+    );
+
+    if (!organization) {
+      throw new Error(`Organization not found for HEIMA_RATINGS_ORGANIZATION_SLUG=${slug}`);
+    }
+
+    return organization.id;
+  }
+
+  private async ensureTournamentInOrganization(tournamentId: string, operation: string) {
+    const organizationId = await this.getOrganizationId();
+    const tournament = await this.querySingle<Pick<TournamentRow, "id">>(
+      this.client
+        .from("tournaments")
+        .select("id")
+        .eq("id", tournamentId)
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      operation
+    );
+
+    if (!tournament) {
+      throw new Error("Tournament not found in current organization");
+    }
+  }
+
+  private async ensureWeaponInOrganization(weaponTypeId: string, operation: string) {
+    const organizationId = await this.getOrganizationId();
+    const weapon = await this.querySingle<Pick<WeaponTypeRow, "id">>(
+      this.client
+        .from("weapon_types")
+        .select("id")
+        .eq("id", weaponTypeId)
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      operation
+    );
+
+    if (!weapon) {
+      throw new Error("Weapon type not found in current organization");
+    }
+  }
+
+  private async ensureEventInTournament(
+    eventId: string,
+    tournamentId: string,
+    weaponTypeId: string,
+    operation: string
+  ) {
+    const event = await this.querySingle<Pick<TournamentEventRow, "id">>(
+      this.client
+        .from("tournament_events")
+        .select("id")
+        .eq("id", eventId)
+        .eq("tournament_id", tournamentId)
+        .eq("weapon_type_id", weaponTypeId)
+        .maybeSingle(),
+      operation
+    );
+
+    if (!event) {
+      throw new Error("Tournament event not found for current tournament and weapon");
+    }
   }
 
   private async findPlayersByNames(organizationId: string, player1Name: string, player2Name: string) {
@@ -382,6 +610,145 @@ export class SupabaseRepository implements AppRepository {
     }
 
     return { player1, player2 };
+  }
+
+  private async listPublicPageSnapshots(publicPageId: string) {
+    try {
+      return await this.query<PublicPageSnapshotRow[]>(
+        this.client
+          .from("public_page_snapshots")
+          .select("*")
+          .eq("public_page_id", publicPageId)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
+        "listPublicPageSnapshots"
+      );
+    } catch (error) {
+      if (isMissingPublicPageSnapshotsTable(error)) {
+        return [];
+      }
+
+      throw error;
+    }
+  }
+
+  private async findOrCreatePublicPage(
+    pageId: string,
+    tournament: TournamentRow,
+    tournamentId: string,
+    weaponTypeId: string
+  ) {
+    const organizationId = await this.getOrganizationId();
+    const existingPage = await this.querySingle<PublicPageRow>(
+      this.client
+        .from("public_pages")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("page_id", pageId)
+        .maybeSingle(),
+      "findOrCreatePublicPage.find"
+    );
+
+    if (existingPage) {
+      const updated = await this.querySingle<PublicPageRow>(
+        this.client
+          .from("public_pages")
+          .update({
+            tournament_id: tournamentId,
+            snapshot_id: null,
+            default_weapon_type_id: existingPage.default_weapon_type_id ?? weaponTypeId,
+            enabled: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existingPage.id)
+          .select("*")
+          .single(),
+        "findOrCreatePublicPage.update"
+      );
+      if (!updated) {
+        throw new Error("findOrCreatePublicPage.update failed: updated page was empty");
+      }
+      return updated;
+    }
+
+    const inserted = await this.querySingle<PublicPageRow>(
+      this.client
+        .from("public_pages")
+        .insert({
+          organization_id: organizationId,
+          page_id: pageId,
+          tournament_id: tournamentId,
+          snapshot_id: null,
+          default_weapon_type_id: weaponTypeId,
+          title: `${tournament.name} 公开榜单`,
+          theme: "dark",
+          enabled: true
+        })
+        .select("*")
+        .single(),
+      "findOrCreatePublicPage.insert"
+    );
+    if (!inserted) {
+      throw new Error("findOrCreatePublicPage.insert failed: inserted page was empty");
+    }
+
+    return inserted;
+  }
+
+  private async publishSnapshotToPage(
+    publicPageId: string,
+    weaponTypeId: string,
+    snapshotId: string
+  ) {
+    const organizationId = await this.getOrganizationId();
+    const weapon = await this.querySingle<WeaponTypeRow>(
+      this.client
+        .from("weapon_types")
+        .select("*")
+        .eq("id", weaponTypeId)
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      "publishSnapshotToPage.weapon"
+    );
+    if (!weapon) {
+      throw new Error("Weapon type not found in current organization");
+    }
+
+    await this.query<PublicPageSnapshotRow[]>(
+      this.client
+        .from("public_page_snapshots")
+        .upsert(
+          {
+            public_page_id: publicPageId,
+            weapon_type_id: weaponTypeId,
+            snapshot_id: snapshotId,
+            sort_order: weapon.sort_order,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: "public_page_id,weapon_type_id" }
+        )
+        .select("*"),
+      "publishSnapshotToPage.upsert"
+    );
+  }
+
+  private async publishSnapshotToLegacyPage(
+    publicPageId: string,
+    weaponTypeId: string,
+    snapshotId: string
+  ) {
+    await this.query<PublicPageRow[]>(
+      this.client
+        .from("public_pages")
+        .update({
+          snapshot_id: snapshotId,
+          default_weapon_type_id: weaponTypeId,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", publicPageId)
+        .select("*"),
+      "publishSnapshotToLegacyPage.update"
+    );
   }
 
   private async query<T>(
@@ -508,10 +875,22 @@ function collectPlayerIds(matches: MatchRow[]) {
   ]);
 }
 
+function isMissingPublicPageSnapshotsTable(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("public_page_snapshots") &&
+    (error.message.includes("does not exist") || error.message.includes("schema cache"))
+  );
+}
+
 function resolveId(id: string) {
   return idAliases[id] ?? id;
 }
 
 function toPublicId(id: string) {
   return reverseAliases[id] ?? id;
+}
+
+function emptyResult<T>() {
+  return Promise.resolve({ data: [] as T, error: null });
 }

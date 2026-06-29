@@ -41,6 +41,28 @@ async function main() {
     }
   );
 
+  await checkJson(
+    "/api/rankings/calculate",
+    "ranking snapshot publish",
+    (data) => {
+      assert(data.result?.algorithm === "hybrid", "snapshot publish result algorithm should be hybrid");
+      assertArray(data.result.rankings, "data.result.rankings");
+      assert(data.snapshot && typeof data.snapshot.id === "string", "snapshot.id should be a string");
+      assert(data.publishPageId === "demo", "publishPageId should be demo");
+    },
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        algorithm: "hybrid",
+        weaponTypeId: "weapon-longsword",
+        tournamentId: "demo",
+        persistSnapshot: true,
+        publishPageId: "demo"
+      })
+    }
+  );
+
   await checkJson("/api/public/rankings/demo", "public rankings", (data) => {
     assert(data.enabled === true, "public page should be enabled");
     assertArray(data.weapons, "data.weapons");

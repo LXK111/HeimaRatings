@@ -2,10 +2,37 @@ import { AppShell } from "@/components/layout/app-shell";
 import { ActionLink } from "@/components/ui/action-link";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { matches, tournamentEvents, tournaments, weaponTypes } from "@/lib/mock/dashboard-data";
+import { getRepository } from "@/lib/server/repositories/factory";
 
-export default function TournamentDetailPage() {
-  const tournament = tournaments[0];
+export const dynamic = "force-dynamic";
+
+interface TournamentDetailPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function TournamentDetailPage({ params }: TournamentDetailPageProps) {
+  const { id } = await params;
+  const repository = getRepository();
+  const [tournament, tournamentEvents, matches, weaponTypes] = await Promise.all([
+    repository.getTournament(id),
+    repository.listTournamentEvents(id),
+    repository.listTournamentMatches(id),
+    repository.listWeapons()
+  ]);
+
+  if (!tournament) {
+    return (
+      <AppShell
+        eyebrow="Tournament Detail"
+        title="赛事不存在"
+        description="请检查赛事链接是否正确。"
+      >
+        <Panel title="无法找到赛事">
+          <p className="text-sm text-stone-400">当前数据源中没有找到该赛事。</p>
+        </Panel>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
@@ -38,7 +65,7 @@ export default function TournamentDetailPage() {
           const weapon = weaponTypes.find((item) => item.id === event.weaponTypeId);
           return (
             <Panel
-              action={<ActionLink href="/tournaments/demo/matches">录入比赛</ActionLink>}
+              action={<ActionLink href={`/tournaments/${id}/matches`}>录入比赛</ActionLink>}
               key={event.id}
               title={event.name}
             >
@@ -57,7 +84,7 @@ export default function TournamentDetailPage() {
       </section>
 
       <Panel
-        action={<ActionLink href="/tournaments/demo/rankings">查看排名</ActionLink>}
+        action={<ActionLink href={`/tournaments/${id}/rankings`}>查看排名</ActionLink>}
         className="mt-6"
         title="最近比赛"
       >

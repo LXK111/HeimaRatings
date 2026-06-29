@@ -38,6 +38,7 @@ export interface CreateRankingSnapshotInput {
   eventId?: string;
   algorithm: RankingAlgorithm;
   sourceHash?: string;
+  publishPageId?: string;
 }
 
 export interface AppRepository {

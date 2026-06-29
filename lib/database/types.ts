@@ -129,6 +129,16 @@ export interface PublicPageRow {
   updated_at: string;
 }
 
+export interface PublicPageSnapshotRow {
+  id: string;
+  public_page_id: string;
+  weapon_type_id: string;
+  snapshot_id: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DatabaseTables {
   organizations: OrganizationRow;
   weapon_types: WeaponTypeRow;
@@ -140,4 +150,5 @@ export interface DatabaseTables {
   ranking_snapshots: RankingSnapshotRow;
   ranking_snapshot_items: RankingSnapshotItemRow;
   public_pages: PublicPageRow;
+  public_page_snapshots: PublicPageSnapshotRow;
 }

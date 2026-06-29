@@ -3,9 +3,14 @@ import { ActionLink } from "@/components/ui/action-link";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { tournaments } from "@/lib/mock/dashboard-data";
+import { getRepository } from "@/lib/server/repositories/factory";
 
-export default function TournamentsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function TournamentsPage() {
+  const tournaments = await getRepository().listTournaments();
+  const primaryTournament = tournaments[0];
+
   return (
     <AppShell
       eyebrow="Events"
@@ -13,7 +18,11 @@ export default function TournamentsPage() {
       description="一个赛事可以包含多个比赛项目，每个比赛项目绑定一个武器类型。当前页面展示赛事入口和状态。"
     >
       <Panel
-        action={<ActionLink href="/tournaments/demo">查看示例赛事</ActionLink>}
+        action={
+          primaryTournament ? (
+            <ActionLink href={`/tournaments/${primaryTournament.id}`}>查看赛事</ActionLink>
+          ) : null
+        }
         eyebrow="Tournaments"
         title="赛事列表"
       >

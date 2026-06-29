@@ -4,12 +4,7 @@ import { StatCard } from "@/components/layout/stat-card";
 import { ActionLink } from "@/components/ui/action-link";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  players,
-  rankingSnapshots,
-  tournaments,
-  weaponTypes
-} from "@/lib/mock/dashboard-data";
+import { getRepository } from "@/lib/server/repositories/factory";
 
 const nextSteps = [
   "阶段 1：落地 Supabase 数据模型，加入 weapon_types 与 player_weapon_ratings",
@@ -17,15 +12,40 @@ const nextSteps = [
   "阶段 3：接入 API 与 Ranking Engine，调用四种 Python 算法"
 ];
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const repository = getRepository();
+  const [weaponTypes, players, tournaments, publicPage] = await Promise.all([
+    repository.listWeapons(),
+    repository.listPlayers(),
+    repository.listTournaments(),
+    repository.getPublicRankingPage("demo")
+  ]);
   const enabledWeapons = weaponTypes.filter((weapon) => weapon.enabled);
   const activeTournament = tournaments.find((item) => item.status === "active");
+  const rankingSnapshots = enabledWeapons
+    .map((weapon) => {
+      const leader = publicPage?.rankingsByWeapon[weapon.id]?.[0];
+      if (!leader) {
+        return undefined;
+      }
+      return {
+        id: `${publicPage?.pageId}-${weapon.id}`,
+        weaponTypeId: weapon.id,
+        algorithm: publicPage?.algorithm ?? "hybrid",
+        generatedAt: publicPage?.generatedAt ?? "未知",
+        leaderName: leader.name,
+        leaderRating: leader.rating
+      };
+    })
+    .filter((snapshot): snapshot is NonNullable<typeof snapshot> => Boolean(snapshot));
 
   return (
     <AppShell
       eyebrow="分武器积分控制台"
       title="HEMA Ratings"
-      description="阶段 2 已扩展 Web UI 页面骨架。当前使用 Mock 数据呈现武器类型、选手、赛事项目、比赛记录、排名榜、公开榜单与嵌入页的信息架构。"
+      description="管理端控制台通过 Repository 数据源呈现武器类型、选手、赛事和已发布排名快照。"
     >
       <section className="grid gap-4 py-8 md:grid-cols-4">
         <StatCard
@@ -36,13 +56,13 @@ export default function Home() {
         />
         <StatCard
           icon={UsersRound}
-          label="选手样例"
+          label="选手"
           value={`${players.length}`}
-          detail="Mock 数据展示分武器积分摘要。"
+          detail="展示分武器积分摘要。"
         />
         <StatCard
           icon={Trophy}
-          label="赛事样例"
+          label="赛事"
           value={`${tournaments.length}`}
           detail={activeTournament ? `${activeTournament.name} 正在进行` : "暂无进行中赛事"}
         />
@@ -50,7 +70,7 @@ export default function Home() {
           icon={Target}
           label="排名快照"
           value={`${rankingSnapshots.length}`}
-          detail="后续由 Ranking Engine 自动生成。"
+          detail="来自当前公开页已发布榜单。"
         />
       </section>
 
@@ -83,7 +103,7 @@ export default function Home() {
         </Panel>
 
         <Panel
-          action={<StatusBadge label="Mock" tone="muted" />}
+          action={<StatusBadge label="Repository" tone="green" />}
           eyebrow="Roadmap"
           title="下一步执行"
         >
