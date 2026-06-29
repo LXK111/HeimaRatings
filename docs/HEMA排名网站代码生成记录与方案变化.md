@@ -32,6 +32,7 @@
 | v2.6 | 2026-06-29 | Codex | 执行阶段 13，新增公开页多武器快照模型 |
 | v2.7 | 2026-06-29 | Codex | 执行阶段 14，管理端页面切换 Repository 数据源 |
 | v2.8 | 2026-06-29 | Codex | 执行阶段 15，建立 Supabase Repository 多组织数据隔离基线 |
+| v2.9 | 2026-06-29 | Codex | 执行阶段 16，补充数据库级多组织隔离约束 |
 
 ## 1. 文档目的
 
@@ -637,3 +638,33 @@ HeimaRatings/
 
 - 多组织隔离先落在 Repository 边界，而不是直接新增登录系统。
 - `public_pages.page_id` 仍是全局唯一，后续需要迁移为组织内唯一。
+
+### 阶段 16：数据库级多组织隔离约束
+
+方案细节：
+
+- 阶段 16 的目标是把阶段 15 的应用层组织隔离下沉为数据库不变量。
+- `public_pages.page_id` 不再全局唯一，改为组织内唯一。
+- 对当前 MVP 的核心写入路径增加 trigger，阻止跨组织错绑。
+- 本阶段仍不做 RLS 和认证，权限系统留到后续阶段。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/database/migrations/202606290002_organization_integrity_constraints.sql`。
+- 已更新 `HeimaRatings/database/migrations/202606240001_initial_schema.sql`，让新库直接使用 `public_pages(organization_id, page_id)` 唯一约束。
+- 已更新 `HeimaRatings/database/seeds/202606240001_seed_core_data.sql`，公开页 seed 改为按 `(organization_id, page_id)` upsert。
+- 已创建 `HeimaRatings/docs/stage-16.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `npm run build`：通过，Next.js 生产构建成功。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- 真库 DDL 执行：已由用户在 Supabase 真库手动执行阶段 16 migration。
+
+方案变化：
+
+- 多组织隔离从 Repository 边界推进到数据库一致性边界。
+- RLS、认证上下文和组织切换仍留到后续阶段。

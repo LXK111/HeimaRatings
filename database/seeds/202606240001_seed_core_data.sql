@@ -87,7 +87,7 @@ values (
   'dark',
   true
 )
-on conflict (page_id) do update
+on conflict (organization_id, page_id) do update
 set
   tournament_id = excluded.tournament_id,
   default_weapon_type_id = excluded.default_weapon_type_id,
