@@ -36,6 +36,7 @@
 | v3.0 | 2026-06-29 | Codex | 执行阶段 17，新增真库组织隔离验收脚本 |
 | v3.1 | 2026-06-29 | Codex | 执行阶段 18，新增组织成员与 RLS 基础策略 |
 | v3.2 | 2026-06-29 | Codex | 执行阶段 19，接入请求级组织上下文 |
+| v3.3 | 2026-06-29 | Codex | 执行阶段 20，新增组织切换与上下文可视化 |
 
 ## 1. 文档目的
 
@@ -158,6 +159,9 @@ HeimaRatings/
 验证记录：
 
 - `npm run check`：通过，TypeScript 无错误。
+- `git diff --check`：通过，无空白格式问题。
+- `npm run build`：通过，Next.js 生产构建成功。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
 - `git diff --check`：通过，无空白格式问题。
 - `npm run build`：通过，Next.js 生产构建成功。
 - `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
@@ -767,3 +771,34 @@ HeimaRatings/
 
 - 当前组织来源从单一 `HEIMA_RATINGS_ORGANIZATION_SLUG` 扩展为请求上下文优先。
 - 登录 UI、Supabase Auth session、用户 JWT Repository 和组织切换 UI 继续留到后续阶段。
+
+### 阶段 20：组织切换与上下文可视化
+
+方案细节：
+
+- 阶段 20 的目标是让阶段 19 的请求级组织上下文在管理端可见、可切换。
+- 管理端 Shell 展示当前组织 slug 和来源。
+- 组织切换通过 server action 写入 `heima_organization_slug` cookie。
+- 公开榜单页面隐藏组织切换入口，避免对外页面出现管理控件。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/components/layout/app-shell.tsx`：
+  - 改为 async Server Component。
+  - 新增组织上下文显示和组织切换表单。
+  - 新增 `switchOrganization()` server action。
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，为 `AppRepository` 增加 `listOrganizations()`。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，从 `organizations` 表读取组织列表。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，返回 demo 组织列表。
+- 已更新公开榜单页，隐藏组织切换入口。
+- 已创建 `HeimaRatings/docs/stage-20.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `npm run check`：通过，TypeScript 无错误。
+
+方案变化：
+
+- 组织上下文从“可被请求指定”推进到“可在管理端看到和切换”。
+- 登录、成员授权校验和用户 JWT Repository 仍留到后续阶段。

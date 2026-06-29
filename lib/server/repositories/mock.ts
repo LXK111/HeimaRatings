@@ -20,6 +20,18 @@ import type {
 } from "@/lib/server/repositories/types";
 
 export class MockRepository implements AppRepository {
+  async listOrganizations() {
+    return [
+      {
+        id: "00000000-0000-0000-0000-000000000001",
+        name: "HEMA Ratings Demo",
+        slug: "hema-ratings-demo",
+        createdAt: "2026-06-24T00:00:00.000Z",
+        updatedAt: "2026-06-24T00:00:00.000Z"
+      }
+    ];
+  }
+
   async listWeapons() {
     return listWeapons();
   }

@@ -62,6 +62,21 @@ export class SupabaseRepository implements AppRepository {
     this.context = normalizeRepositoryContext(context);
   }
 
+  async listOrganizations() {
+    const organizations = await this.query<OrganizationRow[]>(
+      this.client.from("organizations").select("*").order("name", { ascending: true }),
+      "listOrganizations"
+    );
+
+    return organizations.map((organization) => ({
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      createdAt: organization.created_at,
+      updatedAt: organization.updated_at
+    }));
+  }
+
   async listWeapons() {
     const organizationId = await this.getOrganizationId();
     const data = await this.query<WeaponTypeRow[]>(

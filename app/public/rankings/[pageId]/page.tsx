@@ -22,6 +22,7 @@ export default async function PublicRankingPage({ params, searchParams }: Public
     return (
       <AppShell
         eyebrow="Public Ranking"
+        showOrganizationSwitcher={false}
         title="公开榜单不可用"
         description="该榜单不存在或已关闭。"
       >
@@ -42,6 +43,7 @@ export default async function PublicRankingPage({ params, searchParams }: Public
   return (
     <AppShell
       eyebrow="Public Ranking"
+      showOrganizationSwitcher={false}
       title={page.title}
       description="公开页面面向外部访问者，只读展示指定武器类型的排名结果，并提供 iframe 嵌入代码。"
     >

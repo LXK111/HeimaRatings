@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import {
   BarChart3,
   Globe2,
@@ -9,6 +11,8 @@ import {
   UsersRound
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { getRepository } from "@/lib/server/repositories/factory";
+import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 const navigationItems = [
   { href: "/", label: "控制台", icon: Home },
@@ -24,10 +28,32 @@ interface AppShellProps {
   eyebrow?: string;
   title: string;
   description: string;
+  showOrganizationSwitcher?: boolean;
   children: React.ReactNode;
 }
 
-export function AppShell({ eyebrow = "HEMA Ratings", title, description, children }: AppShellProps) {
+export async function AppShell({
+  eyebrow = "HEMA Ratings",
+  title,
+  description,
+  showOrganizationSwitcher = true,
+  children
+}: AppShellProps) {
+  const repositoryContext = await getServerRepositoryContext();
+  const organizationSlug =
+    repositoryContext.organizationSlug ??
+    process.env.HEIMA_RATINGS_ORGANIZATION_SLUG ??
+    "hema-ratings-demo";
+  const organizationSource =
+    repositoryContext.organizationId || repositoryContext.organizationSlug
+      ? "请求上下文"
+      : process.env.HEIMA_RATINGS_ORGANIZATION_SLUG
+        ? "环境变量"
+        : "默认组织";
+  const organizations = showOrganizationSwitcher
+    ? await getRepository(repositoryContext).listOrganizations()
+    : [];
+
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 md:px-8">
       <header className="mb-8 rounded-[2rem] border border-white/10 bg-iron-950/70 p-4 shadow-blade backdrop-blur md:p-6">
@@ -57,8 +83,58 @@ export function AppShell({ eyebrow = "HEMA Ratings", title, description, childre
             ))}
           </nav>
         </div>
+        {showOrganizationSwitcher ? (
+          <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.26em] text-brass-400">
+                Organization
+              </p>
+              <p className="mt-1 text-sm text-stone-300">
+                当前组织：<span className="font-bold text-stone-50">{organizationSlug}</span>
+                <span className="ml-2 text-xs text-stone-500">来源：{organizationSource}</span>
+              </p>
+            </div>
+            <form action={switchOrganization} className="flex flex-col gap-2 sm:flex-row">
+              <select
+                className="min-h-10 rounded-xl border border-white/10 bg-iron-900 px-3 text-sm font-bold text-stone-100 outline-none focus:border-brass-500"
+                defaultValue={organizationSlug}
+                name="organizationSlug"
+              >
+                {organizations.map((organization) => (
+                  <option key={organization.id} value={organization.slug}>
+                    {organization.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="min-h-10 rounded-xl border border-brass-500/40 bg-brass-500/10 px-4 text-sm font-black text-brass-300 transition hover:border-brass-400 hover:bg-brass-500/20"
+                type="submit"
+              >
+                切换组织
+              </button>
+            </form>
+          </div>
+        ) : null}
       </header>
       {children}
     </main>
   );
+}
+
+async function switchOrganization(formData: FormData) {
+  "use server";
+
+  const organizationSlug = String(formData.get("organizationSlug") ?? "").trim();
+  if (!organizationSlug) {
+    return;
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set("heima_organization_slug", organizationSlug, {
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax"
+  });
+  cookieStore.delete("heima_organization_id");
+  revalidatePath("/", "layout");
 }

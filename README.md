@@ -24,6 +24,7 @@
 | v1.8 | 2026-06-29 | Codex | 更新阶段 17 真库组织隔离验收脚本状态 |
 | v1.9 | 2026-06-29 | Codex | 更新阶段 18 认证上下文与 RLS 基础状态 |
 | v2.0 | 2026-06-29 | Codex | 更新阶段 19 请求级组织上下文状态 |
+| v2.1 | 2026-06-29 | Codex | 更新阶段 20 组织切换与上下文可视化状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -51,7 +52,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 19：请求级组织上下文。
+当前已推进到阶段 20：组织切换与上下文可视化。
 
 已完成阶段：
 
@@ -75,6 +76,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 17：新增真库组织隔离验收 SQL 和 `npm run db:verify` 命令。
 - 阶段 18：新增组织成员表、RLS helper function、核心表 RLS policy 和 RLS 验收 SQL。
 - 阶段 19：Repository 接入请求级组织上下文，API 和 Server Page 可从 header/cookie 解析当前组织。
+- 阶段 20：管理端 Shell 展示当前组织来源，并支持通过 cookie 切换组织 slug。
 
 当前阶段边界：
 
@@ -93,6 +95,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 可通过 `DATABASE_URL="postgresql://..." npm run db:verify` 对真库组织隔离约束做事务内验收。
 - 数据库侧已具备组织成员和 RLS 基础策略；现有服务端 Repository 仍使用 service role，用户 JWT 接入留到后续阶段。
 - 管理端页面和 API 会从请求中的 `x-heima-organization-id`、`x-heima-organization-slug`、`heima_organization_id`、`heima_organization_slug` 解析组织上下文；未提供时回退到环境变量和 demo 组织。
+- 管理端 Shell 已提供当前组织可视化和组织 slug 切换入口；该入口仍是开发期/管理期能力，尚未绑定登录用户成员关系。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
@@ -100,7 +103,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
 - 后续增强：为选手、武器、赛事和项目增加真实创建/编辑表单。
 - 后续增强：完善赛事编排、签表、淘汰晋级和项目级排名。
-- 后续增强：接入 Supabase Auth 登录态、用户 JWT Repository 和组织切换 UI。
+- 后续增强：接入 Supabase Auth 登录态、用户 JWT Repository 和成员授权校验。
 
 ## 遗留 TODO
 
