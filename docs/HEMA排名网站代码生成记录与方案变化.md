@@ -37,6 +37,7 @@
 | v3.1 | 2026-06-29 | Codex | 执行阶段 18，新增组织成员与 RLS 基础策略 |
 | v3.2 | 2026-06-29 | Codex | 执行阶段 19，接入请求级组织上下文 |
 | v3.3 | 2026-06-29 | Codex | 执行阶段 20，新增组织切换与上下文可视化 |
+| v3.4 | 2026-06-29 | Codex | 执行阶段 21，新增最小 Supabase Auth 登录保护 |
 
 ## 1. 文档目的
 
@@ -159,6 +160,9 @@ HeimaRatings/
 验证记录：
 
 - `npm run check`：通过，TypeScript 无错误。
+- `git diff --check`：通过，无空白格式问题。
+- `npm run build`：通过，Next.js 生产构建成功，新增 `/login` 路由。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
 - `git diff --check`：通过，无空白格式问题。
 - `npm run build`：通过，Next.js 生产构建成功。
 - `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
@@ -802,3 +806,34 @@ HeimaRatings/
 
 - 组织上下文从“可被请求指定”推进到“可在管理端看到和切换”。
 - 登录、成员授权校验和用户 JWT Repository 仍留到后续阶段。
+
+### 阶段 21：最小 Supabase Auth 登录保护
+
+方案细节：
+
+- 阶段 21 的目标是让管理端知道“当前用户是否已登录”。
+- Supabase 模式下默认要求管理端登录。
+- Mock 模式继续免登录，保障本地验收。
+- 公开榜单和嵌入页保持匿名访问。
+- 当前仍不把 Repository 切换到用户 JWT，避免一次性改变数据访问路径。
+
+代码生成记录：
+
+- 已安装 `@supabase/ssr`。
+- 已新增 `HeimaRatings/lib/server/supabase/auth.ts`。
+- 已新增 `HeimaRatings/lib/server/auth-actions.ts`。
+- 已新增 `HeimaRatings/lib/server/auth-guard.ts`。
+- 已新增 `HeimaRatings/app/login/page.tsx`。
+- 已更新 `HeimaRatings/components/layout/app-shell.tsx`，接入登录保护、当前用户展示和退出按钮。
+- 已更新管理 API，在 Supabase 模式下要求登录。
+- 已创建 `HeimaRatings/docs/stage-21.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、环境变量和阶段边界。
+
+验证记录：
+
+- `npm run check`：通过，TypeScript 无错误。
+
+方案变化：
+
+- 管理端从“可切换组织”推进到“最小登录保护”。
+- 组织成员授权、用户 JWT Repository 和完整注册/邀请流程仍留到后续阶段。

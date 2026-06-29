@@ -13,6 +13,7 @@
     "verify": "node scripts/verify_local.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "lucide-react": "^0.468.0",
     "next": "^15.0.4",

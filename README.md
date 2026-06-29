@@ -25,6 +25,7 @@
 | v1.9 | 2026-06-29 | Codex | 更新阶段 18 认证上下文与 RLS 基础状态 |
 | v2.0 | 2026-06-29 | Codex | 更新阶段 19 请求级组织上下文状态 |
 | v2.1 | 2026-06-29 | Codex | 更新阶段 20 组织切换与上下文可视化状态 |
+| v2.2 | 2026-06-29 | Codex | 更新阶段 21 最小 Supabase Auth 登录保护状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -52,7 +53,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 20：组织切换与上下文可视化。
+当前已推进到阶段 21：最小 Supabase Auth 登录保护。
 
 已完成阶段：
 
@@ -77,6 +78,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 18：新增组织成员表、RLS helper function、核心表 RLS policy 和 RLS 验收 SQL。
 - 阶段 19：Repository 接入请求级组织上下文，API 和 Server Page 可从 header/cookie 解析当前组织。
 - 阶段 20：管理端 Shell 展示当前组织来源，并支持通过 cookie 切换组织 slug。
+- 阶段 21：新增 Supabase Auth email/password 登录页，管理端页面和管理 API 在 Supabase 模式下要求登录。
 
 当前阶段边界：
 
@@ -96,6 +98,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 数据库侧已具备组织成员和 RLS 基础策略；现有服务端 Repository 仍使用 service role，用户 JWT 接入留到后续阶段。
 - 管理端页面和 API 会从请求中的 `x-heima-organization-id`、`x-heima-organization-slug`、`heima_organization_id`、`heima_organization_slug` 解析组织上下文；未提供时回退到环境变量和 demo 组织。
 - 管理端 Shell 已提供当前组织可视化和组织 slug 切换入口；该入口仍是开发期/管理期能力，尚未绑定登录用户成员关系。
+- Supabase 模式默认启用管理端登录保护；可用 `HEIMA_RATINGS_AUTH_REQUIRED=false` 临时关闭。公开榜单和嵌入页继续匿名访问。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
@@ -131,12 +134,14 @@ Supabase 数据源预留配置：
 
 ```bash
 HEIMA_RATINGS_DATA_SOURCE=supabase
+HEIMA_RATINGS_AUTH_REQUIRED=true
 HEIMA_RATINGS_ORGANIZATION_SLUG=hema-ratings-demo
 NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
-当前阶段 `supabase` 模式已实现基础读取、比赛写入、排名快照保存、公开页发布和应用层组织隔离；没有真实 Supabase 配置时请保持默认 Mock 模式。
+当前阶段 `supabase` 模式已实现基础读取、比赛写入、排名快照保存、公开页发布、应用层组织隔离和最小管理端登录保护；没有真实 Supabase 配置时请保持默认 Mock 模式。
 
 ## 编译运行指令
 

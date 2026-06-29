@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { RankingAlgorithm, RankingEngineInput } from "@/lib/domain/types";
 import { runRankingEngine } from "@/lib/ranking-engine/adapter";
 import { badRequest, ok, serverError } from "@/lib/server/api-response";
+import { requireManagementApiUser } from "@/lib/server/auth-guard";
 import { readRepositoryContextFromRequest } from "@/lib/server/repositories/context";
 import { getRepository } from "@/lib/server/repositories/factory";
 
@@ -9,6 +10,11 @@ const algorithms = new Set<RankingAlgorithm>(["elo", "sdr", "glicko2", "hybrid"]
 
 export async function POST(request: Request) {
   try {
+    const authError = await requireManagementApiUser();
+    if (authError) {
+      return authError;
+    }
+
     const body = await readOptionalJson(request);
     const algorithm = readAlgorithm(body?.algorithm);
     const weaponTypeId = typeof body?.weaponTypeId === "string" ? body.weaponTypeId : undefined;

@@ -11,6 +11,8 @@ import {
   UsersRound
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { signOut } from "@/lib/server/auth-actions";
+import { requireManagementUser } from "@/lib/server/auth-guard";
 import { getRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
@@ -39,6 +41,7 @@ export async function AppShell({
   showOrganizationSwitcher = true,
   children
 }: AppShellProps) {
+  const authUser = showOrganizationSwitcher ? await requireManagementUser() : undefined;
   const repositoryContext = await getServerRepositoryContext();
   const organizationSlug =
     repositoryContext.organizationSlug ??
@@ -93,26 +96,39 @@ export async function AppShell({
                 当前组织：<span className="font-bold text-stone-50">{organizationSlug}</span>
                 <span className="ml-2 text-xs text-stone-500">来源：{organizationSource}</span>
               </p>
+              {authUser?.email ? (
+                <p className="mt-1 text-xs text-stone-500">当前用户：{authUser.email}</p>
+              ) : null}
             </div>
-            <form action={switchOrganization} className="flex flex-col gap-2 sm:flex-row">
-              <select
-                className="min-h-10 rounded-xl border border-white/10 bg-iron-900 px-3 text-sm font-bold text-stone-100 outline-none focus:border-brass-500"
-                defaultValue={organizationSlug}
-                name="organizationSlug"
-              >
-                {organizations.map((organization) => (
-                  <option key={organization.id} value={organization.slug}>
-                    {organization.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="min-h-10 rounded-xl border border-brass-500/40 bg-brass-500/10 px-4 text-sm font-black text-brass-300 transition hover:border-brass-400 hover:bg-brass-500/20"
-                type="submit"
-              >
-                切换组织
-              </button>
-            </form>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <form action={switchOrganization} className="flex flex-col gap-2 sm:flex-row">
+                <select
+                  className="min-h-10 rounded-xl border border-white/10 bg-iron-900 px-3 text-sm font-bold text-stone-100 outline-none focus:border-brass-500"
+                  defaultValue={organizationSlug}
+                  name="organizationSlug"
+                >
+                  {organizations.map((organization) => (
+                    <option key={organization.id} value={organization.slug}>
+                      {organization.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="min-h-10 rounded-xl border border-brass-500/40 bg-brass-500/10 px-4 text-sm font-black text-brass-300 transition hover:border-brass-400 hover:bg-brass-500/20"
+                  type="submit"
+                >
+                  切换组织
+                </button>
+              </form>
+              <form action={signOut}>
+                <button
+                  className="min-h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-stone-300 transition hover:border-red-500/40 hover:text-red-200"
+                  type="submit"
+                >
+                  退出
+                </button>
+              </form>
+            </div>
           </div>
         ) : null}
       </header>

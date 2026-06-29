@@ -16,6 +16,10 @@ export function notFound(message: string) {
   return NextResponse.json({ error: { message } }, { status: 404 });
 }
 
+export function unauthorized(message = "Authentication required") {
+  return NextResponse.json({ error: { message } }, { status: 401 });
+}
+
 export function serverError(error: unknown) {
   const message = error instanceof Error ? error.message : "Internal server error";
   return NextResponse.json({ error: { message } }, { status: 500 });
