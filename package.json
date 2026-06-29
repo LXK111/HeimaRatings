@@ -9,6 +9,7 @@
     "lint": "next lint",
     "check": "tsc --noEmit",
     "smoke": "node scripts/smoke_check.mjs",
+    "db:verify": "node scripts/verify_database_constraints.mjs",
     "verify": "node scripts/verify_local.mjs"
   },
   "dependencies": {

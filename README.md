@@ -21,6 +21,8 @@
 | v1.5 | 2026-06-29 | Codex | 更新阶段 14 管理端页面 Repository/API 化状态 |
 | v1.6 | 2026-06-29 | Codex | 更新阶段 15 多组织数据隔离基线状态 |
 | v1.7 | 2026-06-29 | Codex | 更新阶段 16 数据库级多组织隔离约束状态 |
+| v1.8 | 2026-06-29 | Codex | 更新阶段 17 真库组织隔离验收脚本状态 |
+| v1.9 | 2026-06-29 | Codex | 更新阶段 18 认证上下文与 RLS 基础状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -48,7 +50,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 16：数据库级多组织隔离约束。
+当前已推进到阶段 18：认证上下文与 RLS 基础。
 
 已完成阶段：
 
@@ -69,6 +71,8 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 14：管理端页面改为通过 Repository 读取数据，页面层不再直接依赖 Mock 数据模块。
 - 阶段 15：Supabase Repository 增加当前组织上下文，主要读写路径按组织隔离。
 - 阶段 16：数据库迁移补充组织内公开页唯一约束、复合索引和跨表组织一致性 trigger。
+- 阶段 17：新增真库组织隔离验收 SQL 和 `npm run db:verify` 命令。
+- 阶段 18：新增组织成员表、RLS helper function、核心表 RLS policy 和 RLS 验收 SQL。
 
 当前阶段边界：
 
@@ -84,6 +88,8 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - Supabase Repository 会通过 `HEIMA_RATINGS_ORGANIZATION_SLUG` 解析当前组织，未配置时默认使用 `hema-ratings-demo`。
 - Supabase 模式下武器、选手、赛事、比赛、排名计算、快照发布和公开页读取已按当前组织做应用层隔离。
 - 数据库迁移已补充 `public_pages(organization_id, page_id)` 唯一约束和关键写入路径的组织一致性 trigger。
+- 可通过 `DATABASE_URL="postgresql://..." npm run db:verify` 对真库组织隔离约束做事务内验收。
+- 数据库侧已具备组织成员和 RLS 基础策略；现有服务端 Repository 仍使用 service role，用户 JWT 接入留到后续阶段。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
@@ -91,7 +97,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
 - 后续增强：为选手、武器、赛事和项目增加真实创建/编辑表单。
 - 后续增强：完善赛事编排、签表、淘汰晋级和项目级排名。
-- 后续增强：为多组织隔离补充 RLS、认证上下文和组织切换。
+- 后续增强：接入 Supabase Auth 登录态、用户 JWT 请求上下文和组织切换。
 
 ## 遗留 TODO
 
@@ -144,6 +150,9 @@ npm run check
 # 本地 smoke check（需要先启动 npm run dev 或 npm run start）
 npm run smoke
 
+# 真库数据库约束验收（需要 psql 和 DATABASE_URL）
+npm run db:verify
+
 # 本地一键验收（会自动执行 check、build、临时 start 和 smoke）
 npm run verify
 
@@ -160,6 +169,12 @@ npm run start
 访问地址：`http://localhost:3000`
 
 `npm run verify` 默认临时使用 `http://localhost:3100` 做生产服务验收；如端口被占用，可通过 `HEIMA_RATINGS_VERIFY_PORT=3101 npm run verify` 覆盖。
+
+`npm run db:verify` 会优先读取当前 shell 中的 `DATABASE_URL`，也支持项目根目录下不提交的 `.env.database.local`：
+
+```bash
+DATABASE_URL="postgresql://..."
+```
 
 **注意**：排名计算功能依赖本机 `python3`；若环境中 Python 命令不是 `python3`（如 Windows 下为 `python`），需修改 `lib/ranking-engine/adapter.ts` 中的 spawn 命令。
 

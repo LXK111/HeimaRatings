@@ -33,6 +33,8 @@
 | v2.7 | 2026-06-29 | Codex | 执行阶段 14，管理端页面切换 Repository 数据源 |
 | v2.8 | 2026-06-29 | Codex | 执行阶段 15，建立 Supabase Repository 多组织数据隔离基线 |
 | v2.9 | 2026-06-29 | Codex | 执行阶段 16，补充数据库级多组织隔离约束 |
+| v3.0 | 2026-06-29 | Codex | 执行阶段 17，新增真库组织隔离验收脚本 |
+| v3.1 | 2026-06-29 | Codex | 执行阶段 18，新增组织成员与 RLS 基础策略 |
 
 ## 1. 文档目的
 
@@ -668,3 +670,67 @@ HeimaRatings/
 
 - 多组织隔离从 Repository 边界推进到数据库一致性边界。
 - RLS、认证上下文和组织切换仍留到后续阶段。
+
+### 阶段 17：真库组织隔离验收脚本
+
+方案细节：
+
+- 阶段 17 的目标是让阶段 16 的数据库约束可以被重复验收。
+- 使用 SQL 事务内临时数据验证正向写入和负向失败路径。
+- `rollback` 结束验证，避免污染真库业务数据。
+- 通过 `npm run db:verify` 封装 `psql` 调用。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/database/validations/202606290003_verify_organization_integrity.sql`。
+- 已新增 `HeimaRatings/scripts/verify_database_constraints.mjs`。
+- `db:verify` 支持读取项目根目录下不提交的 `.env.database.local`。
+- 已更新 `HeimaRatings/package.json`，新增 `db:verify` 脚本。
+- 已创建 `HeimaRatings/docs/stage-17.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、运行命令和阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run db:verify` 缺配置路径：通过，未配置 `DATABASE_URL` 时明确提示。
+- `npm run check`：通过，TypeScript 无错误。
+- `npm run build`：通过，Next.js 生产构建成功。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- 真库 `db:verify`：已由用户在本地数据库连接环境执行成功。
+
+方案变化：
+
+- 真库验证从人工 SQL 检查升级为可重复执行的事务内验收脚本。
+- 本阶段仍不引入 RLS、认证上下文或 Supabase CLI。
+
+### 阶段 18：认证上下文与 RLS 基础
+
+方案细节：
+
+- 阶段 18 的目标是为后续 Supabase Auth 和用户级组织上下文建立数据库基础。
+- 新增 `organization_members`，表达用户与组织的成员关系和角色。
+- 先在数据库侧启用 RLS policy，现有服务端 Repository 仍走 service role，避免打断当前 MVP。
+- `db:verify` 改为顺序执行全部 validation SQL，后续新增数据库验收无需改脚本。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/database/migrations/202606290003_auth_rls_foundation.sql`。
+- 已新增 `HeimaRatings/database/validations/202606290004_verify_auth_rls_foundation.sql`。
+- 已更新 `HeimaRatings/scripts/verify_database_constraints.mjs`，支持顺序执行多份 validation SQL。
+- 已更新 `HeimaRatings/lib/database/types.ts`，新增 `OrganizationMemberRow`。
+- 已创建 `HeimaRatings/docs/stage-18.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `DATABASE_URL= npm run db:verify` 缺配置路径：通过，未配置连接串时明确提示。
+- `npm run check`：通过，TypeScript 无错误。
+- `npm run build`：通过，Next.js 生产构建成功。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- 真库 RLS migration 和新增 validation：已由用户在本地数据库连接环境执行 `npm run db:verify` 验收通过。
+
+方案变化：
+
+- 多组织隔离从“应用层过滤 + 数据库一致性约束”继续推进到“数据库访问策略基础”。
+- 登录 UI、用户 JWT Repository 和组织切换仍留到后续阶段。

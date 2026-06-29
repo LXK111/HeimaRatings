@@ -13,6 +13,15 @@ export interface OrganizationRow {
   updated_at: string;
 }
 
+export interface OrganizationMemberRow {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: "admin" | "editor" | "viewer";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WeaponTypeRow {
   id: string;
   organization_id: string;
@@ -141,6 +150,7 @@ export interface PublicPageSnapshotRow {
 
 export interface DatabaseTables {
   organizations: OrganizationRow;
+  organization_members: OrganizationMemberRow;
   weapon_types: WeaponTypeRow;
   players: PlayerRow;
   player_weapon_ratings: PlayerWeaponRatingRow;
