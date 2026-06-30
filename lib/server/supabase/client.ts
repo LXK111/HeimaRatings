@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createAuthSupabaseClient } from "@/lib/server/supabase/auth";
 
 export function createServerSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -25,4 +26,8 @@ export function createServerSupabaseClient() {
       persistSession: false
     }
   });
+}
+
+export async function createUserSupabaseClient() {
+  return createAuthSupabaseClient();
 }

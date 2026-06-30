@@ -4,7 +4,7 @@ import {
   requireManagementApiWriteAccess
 } from "@/lib/server/auth-guard";
 import { readAuthorizedRepositoryContextFromRequest } from "@/lib/server/organization-access";
-import { getRepository } from "@/lib/server/repositories/factory";
+import { getRequestRepository } from "@/lib/server/repositories/factory";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -18,7 +18,7 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     const { id } = await context.params;
-    const repository = getRepository(await readAuthorizedRepositoryContextFromRequest(request));
+    const repository = await getRequestRepository(await readAuthorizedRepositoryContextFromRequest(request));
     return ok(await repository.listTournamentMatches(id));
   });
 }
@@ -37,7 +37,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const body = await request.json();
-    const repository = getRepository(await readAuthorizedRepositoryContextFromRequest(request));
+    const repository = await getRequestRepository(await readAuthorizedRepositoryContextFromRequest(request));
     return created(await repository.createMatch(id, body));
   } catch (error) {
     if (isServerConfigurationError(error)) {

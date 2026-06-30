@@ -1,7 +1,7 @@
 import { ok, withServerError } from "@/lib/server/api-response";
 import { requireManagementApiUser } from "@/lib/server/auth-guard";
 import { readAuthorizedRepositoryContextFromRequest } from "@/lib/server/organization-access";
-import { getRepository } from "@/lib/server/repositories/factory";
+import { getRequestRepository } from "@/lib/server/repositories/factory";
 
 export async function GET(request: Request) {
   return withServerError(async () => {
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       return authError;
     }
 
-    const repository = getRepository(await readAuthorizedRepositoryContextFromRequest(request));
+    const repository = await getRequestRepository(await readAuthorizedRepositoryContextFromRequest(request));
     return ok(await repository.listPlayers());
   });
 }

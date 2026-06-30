@@ -27,6 +27,7 @@
 | v2.1 | 2026-06-29 | Codex | 更新阶段 20 组织切换与上下文可视化状态 |
 | v2.2 | 2026-06-29 | Codex | 更新阶段 21 最小 Supabase Auth 登录保护状态 |
 | v2.3 | 2026-06-30 | Codex | 更新阶段 22 成员组织授权收敛状态 |
+| v2.4 | 2026-06-30 | Codex | 更新阶段 23 用户 JWT Repository 与 RLS 接管状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -54,7 +55,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 22：成员组织授权收敛。
+当前已推进到阶段 23：用户 JWT Repository 与 RLS 接管。
 
 已完成阶段：
 
@@ -81,6 +82,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 20：管理端 Shell 展示当前组织来源，并支持通过 cookie 切换组织 slug。
 - 阶段 21：新增 Supabase Auth email/password 登录页，管理端页面和管理 API 在 Supabase 模式下要求登录。
 - 阶段 22：管理端组织上下文按 `organization_members` 授权，组织切换只展示成员组织，写入接口要求 `admin` 或 `editor`。
+- 阶段 23：管理端页面和管理 API 在 Supabase 登录保护开启时使用用户会话 client 访问数据库，让 RLS 参与服务端读写路径。
 
 当前阶段边界：
 
@@ -97,11 +99,12 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - Supabase 模式下武器、选手、赛事、比赛、排名计算、快照发布和公开页读取已按当前组织做应用层隔离。
 - 数据库迁移已补充 `public_pages(organization_id, page_id)` 唯一约束和关键写入路径的组织一致性 trigger。
 - 可通过 `DATABASE_URL="postgresql://..." npm run db:verify` 对真库组织隔离约束做事务内验收。
-- 数据库侧已具备组织成员和 RLS 基础策略；现有服务端 Repository 仍使用 service role，用户 JWT 接入留到后续阶段。
+- 数据库侧已具备组织成员和 RLS 基础策略；管理端 Repository 在 Supabase 登录保护开启时会使用当前用户会话 client，让 RLS 参与服务端读写路径。
 - 管理端页面和 API 会从请求中的 `x-heima-organization-id`、`x-heima-organization-slug`、`heima_organization_id`、`heima_organization_slug` 解析期望组织；Supabase 登录保护开启时，会再按当前用户的 `organization_members` 做成员授权。
 - 管理端 Shell 已提供当前组织可视化和组织 slug 切换入口；Supabase 登录保护开启时，列表只展示当前用户所属组织。
 - Supabase 模式默认启用管理端登录保护；可用 `HEIMA_RATINGS_AUTH_REQUIRED=false` 临时关闭。公开榜单和嵌入页继续匿名访问。
 - Supabase 模式下 `viewer` 可读管理数据；比赛写入和排名快照持久化要求当前组织角色为 `admin` 或 `editor`。
+- service role Repository 仍保留给公开榜单、嵌入页、公开 API 和内部成员授权查询使用。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
@@ -109,7 +112,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
 - 后续增强：为选手、武器、赛事和项目增加真实创建/编辑表单。
 - 后续增强：完善赛事编排、签表、淘汰晋级和项目级排名。
-- 后续增强：接入用户 JWT Repository，让数据库 RLS 成为服务端读写路径的最终权限边界。
+- 后续增强：补充真库登录会话下的 RLS 端到端验收，并收紧数据库写权限 policy 到 `admin/editor`。
 
 ## 遗留 TODO
 
@@ -144,7 +147,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
-当前阶段 `supabase` 模式已实现基础读取、比赛写入、排名快照保存、公开页发布、应用层组织隔离、最小管理端登录保护和成员组织授权；没有真实 Supabase 配置时请保持默认 Mock 模式。
+当前阶段 `supabase` 模式已实现基础读取、比赛写入、排名快照保存、公开页发布、应用层组织隔离、最小管理端登录保护、成员组织授权和管理端用户 JWT Repository；没有真实 Supabase 配置时请保持默认 Mock 模式。
 
 ## 编译运行指令
 

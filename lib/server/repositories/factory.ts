@@ -1,6 +1,8 @@
 import { MockRepository } from "@/lib/server/repositories/mock";
 import { SupabaseRepository } from "@/lib/server/repositories/supabase";
 import { repositoryContextCacheKey } from "@/lib/server/repositories/context";
+import { createUserSupabaseClient } from "@/lib/server/supabase/client";
+import { isManagementAuthRequired } from "@/lib/server/supabase/auth";
 import type { AppRepository } from "@/lib/server/repositories/types";
 import type { RepositoryContext } from "@/lib/server/repositories/context";
 
@@ -30,6 +32,15 @@ export function getRepository(context: RepositoryContext = {}): AppRepository {
   }
 
   return repository;
+}
+
+export async function getRequestRepository(context: RepositoryContext = {}): Promise<AppRepository> {
+  const source = readDataSource();
+  if (source !== "supabase" || !isManagementAuthRequired()) {
+    return getRepository(context);
+  }
+
+  return new SupabaseRepository(context, createUserSupabaseClient);
 }
 
 function readDataSource(): DataSource {

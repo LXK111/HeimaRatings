@@ -7,7 +7,7 @@ import {
   requireManagementApiWriteAccess
 } from "@/lib/server/auth-guard";
 import { readAuthorizedRepositoryContextFromRequest } from "@/lib/server/organization-access";
-import { getRepository } from "@/lib/server/repositories/factory";
+import { getRequestRepository } from "@/lib/server/repositories/factory";
 
 const algorithms = new Set<RankingAlgorithm>(["elo", "sdr", "glicko2", "hybrid"]);
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const repository = getRepository(await readAuthorizedRepositoryContextFromRequest(request));
+    const repository = await getRequestRepository(await readAuthorizedRepositoryContextFromRequest(request));
     const input = !persistSnapshot && isRankingEngineInput(body)
       ? { ...body, algorithm }
       : await repository.buildRankingEngineInput({ algorithm, weaponTypeId, tournamentId, eventId });

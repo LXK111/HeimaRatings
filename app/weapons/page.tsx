@@ -2,13 +2,13 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getRepository } from "@/lib/server/repositories/factory";
+import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function WeaponsPage() {
-  const weaponTypes = await getRepository(await getServerRepositoryContext()).listWeapons();
+  const weaponTypes = await (await getRequestRepository(await getServerRepositoryContext())).listWeapons();
 
   return (
     <AppShell

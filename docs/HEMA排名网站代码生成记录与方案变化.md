@@ -39,6 +39,7 @@
 | v3.3 | 2026-06-29 | Codex | 执行阶段 20，新增组织切换与上下文可视化 |
 | v3.4 | 2026-06-29 | Codex | 执行阶段 21，新增最小 Supabase Auth 登录保护 |
 | v3.5 | 2026-06-30 | Codex | 执行阶段 22，收敛成员组织授权和管理写权限 |
+| v3.6 | 2026-06-30 | Codex | 执行阶段 23，管理端 Repository 切换用户 JWT client |
 
 ## 1. 文档目的
 
@@ -873,3 +874,34 @@ HeimaRatings/
 
 - 管理端从“已登录即可访问任意请求组织”推进到“登录用户只能访问成员组织”。
 - 服务端 Repository 仍使用 service role，用户 JWT Repository 和 RLS 强制执行留到后续阶段。
+
+### 阶段 23：用户 JWT Repository 与 RLS 接管
+
+方案细节：
+
+- 阶段 23 的目标是让管理端服务端读写路径使用当前 Supabase Auth 用户会话。
+- 管理端页面和管理 API 改用请求级 Repository。
+- 请求级 Repository 在 Supabase 登录保护开启时使用用户会话 client，让数据库 RLS 参与访问控制。
+- 公开榜单、嵌入页、公开 API 和内部成员授权查询继续使用 service role Repository。
+- Mock 模式继续使用原有 Mock Repository。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/supabase/client.ts`，新增 `createUserSupabaseClient()`。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，支持异步 Supabase client provider。
+- 已更新 `HeimaRatings/lib/server/repositories/factory.ts`，新增 `getRequestRepository()`。
+- 已更新管理端页面，改用 `getRequestRepository()`。
+- 已更新管理 API，改用 `getRequestRepository()`。
+- 已保留公开页、嵌入页和公开榜单 API 的 service role Repository 路径。
+- 已创建 `HeimaRatings/docs/stage-23.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 管理端从“应用层成员授权 + service role 数据访问”推进到“应用层成员授权 + 用户 JWT/RLS 数据访问”。
+- service role 仍保留给公开读路径和内部授权查询；数据库写权限 policy 细化留到后续阶段。

@@ -4,7 +4,7 @@ import { StatCard } from "@/components/layout/stat-card";
 import { ActionLink } from "@/components/ui/action-link";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getRepository } from "@/lib/server/repositories/factory";
+import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 const nextSteps = [
@@ -16,7 +16,7 @@ const nextSteps = [
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const repository = getRepository(await getServerRepositoryContext());
+  const repository = await getRequestRepository(await getServerRepositoryContext());
   const [weaponTypes, players, tournaments, publicPage] = await Promise.all([
     repository.listWeapons(),
     repository.listPlayers(),

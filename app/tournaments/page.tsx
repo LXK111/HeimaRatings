@@ -3,13 +3,13 @@ import { ActionLink } from "@/components/ui/action-link";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getRepository } from "@/lib/server/repositories/factory";
+import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function TournamentsPage() {
-  const tournaments = await getRepository(await getServerRepositoryContext()).listTournaments();
+  const tournaments = await (await getRequestRepository(await getServerRepositoryContext())).listTournaments();
   const primaryTournament = tournaments[0];
 
   return (

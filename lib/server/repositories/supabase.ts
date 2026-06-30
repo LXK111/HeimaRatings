@@ -36,6 +36,9 @@ import type { RepositoryContext } from "@/lib/server/repositories/context";
 
 const demoTournamentId = "30000000-0000-0000-0000-000000000001";
 const defaultOrganizationSlug = "hema-ratings-demo";
+type SupabaseClientProvider = () =>
+  | ReturnType<typeof createServerSupabaseClient>
+  | Promise<ReturnType<typeof createServerSupabaseClient>>;
 
 const idAliases: Record<string, string> = {
   demo: demoTournamentId,
@@ -55,17 +58,22 @@ const reverseAliases = Object.fromEntries(
 );
 
 export class SupabaseRepository implements AppRepository {
-  private readonly client = createServerSupabaseClient();
   private readonly context: RepositoryContext;
+  private readonly clientProvider: SupabaseClientProvider;
+  private clientPromise: Promise<ReturnType<typeof createServerSupabaseClient>> | undefined;
   private organizationIdPromise: Promise<string> | undefined;
 
-  constructor(context: RepositoryContext = {}) {
+  constructor(
+    context: RepositoryContext = {},
+    clientProvider: SupabaseClientProvider = createServerSupabaseClient
+  ) {
     this.context = normalizeRepositoryContext(context);
+    this.clientProvider = clientProvider;
   }
 
   async listOrganizations() {
     const organizations = await this.query<OrganizationRow[]>(
-      this.client.from("organizations").select("*").order("name", { ascending: true }),
+      (await this.getClient()).from("organizations").select("*").order("name", { ascending: true }),
       "listOrganizations"
     );
 
@@ -80,7 +88,7 @@ export class SupabaseRepository implements AppRepository {
 
   async listUserOrganizationMemberships(userId: string) {
     const memberships = await this.query<OrganizationMemberRow[]>(
-      this.client
+      (await this.getClient())
         .from("organization_members")
         .select("*")
         .eq("user_id", userId)
@@ -90,7 +98,7 @@ export class SupabaseRepository implements AppRepository {
     const organizationIds = memberships.map((membership) => membership.organization_id);
     const organizations = await this.query<OrganizationRow[]>(
       organizationIds.length > 0
-        ? this.client.from("organizations").select("*").in("id", organizationIds)
+        ? (await this.getClient()).from("organizations").select("*").in("id", organizationIds)
         : emptyResult<OrganizationRow[]>(),
       "listUserOrganizationMemberships.organizations"
     );
@@ -116,7 +124,7 @@ export class SupabaseRepository implements AppRepository {
   async listWeapons() {
     const organizationId = await this.getOrganizationId();
     const data = await this.query<WeaponTypeRow[]>(
-      this.client
+      (await this.getClient())
         .from("weapon_types")
         .select("*")
         .eq("organization_id", organizationId)
@@ -130,7 +138,7 @@ export class SupabaseRepository implements AppRepository {
   async listPlayers() {
     const organizationId = await this.getOrganizationId();
     const players = await this.query<PlayerRow[]>(
-      this.client
+      (await this.getClient())
         .from("players")
         .select("*")
         .eq("organization_id", organizationId)
@@ -140,7 +148,7 @@ export class SupabaseRepository implements AppRepository {
     const playerIds = players.map((player) => player.id);
     const ratings = await this.query<PlayerWeaponRatingRow[]>(
       playerIds.length > 0
-        ? this.client.from("player_weapon_ratings").select("*").in("player_id", playerIds)
+        ? (await this.getClient()).from("player_weapon_ratings").select("*").in("player_id", playerIds)
         : emptyResult<PlayerWeaponRatingRow[]>(),
       "listPlayers.ratings"
     );
@@ -163,7 +171,7 @@ export class SupabaseRepository implements AppRepository {
   async listTournaments() {
     const organizationId = await this.getOrganizationId();
     const tournaments = await this.query<TournamentRow[]>(
-      this.client
+      (await this.getClient())
         .from("tournaments")
         .select("*")
         .eq("organization_id", organizationId)
@@ -173,7 +181,7 @@ export class SupabaseRepository implements AppRepository {
     const tournamentIds = tournaments.map((tournament) => tournament.id);
     const events = await this.query<TournamentEventRow[]>(
       tournamentIds.length > 0
-        ? this.client
+        ? (await this.getClient())
             .from("tournament_events")
             .select("id,tournament_id,weapon_type_id,name,format,status,created_at,updated_at")
             .in("tournament_id", tournamentIds)
@@ -182,7 +190,7 @@ export class SupabaseRepository implements AppRepository {
     );
     const matches = await this.query<Pick<MatchRow, "id" | "tournament_id">[]>(
       tournamentIds.length > 0
-        ? this.client.from("matches").select("id,tournament_id").in("tournament_id", tournamentIds)
+        ? (await this.getClient()).from("matches").select("id,tournament_id").in("tournament_id", tournamentIds)
         : emptyResult<Pick<MatchRow, "id" | "tournament_id">[]>(),
       "listTournaments.matches"
     );
@@ -207,7 +215,7 @@ export class SupabaseRepository implements AppRepository {
     const resolvedTournamentId = resolveId(tournamentId);
     await this.ensureTournamentInOrganization(resolvedTournamentId, "listTournamentEvents.tournament");
     const data = await this.query<TournamentEventRow[]>(
-      this.client
+      (await this.getClient())
         .from("tournament_events")
         .select("*")
         .eq("tournament_id", resolvedTournamentId)
@@ -215,7 +223,7 @@ export class SupabaseRepository implements AppRepository {
       "listTournamentEvents"
     );
     const matches = await this.query<Pick<MatchRow, "id" | "event_id">[]>(
-      this.client.from("matches").select("id,event_id").eq("tournament_id", resolvedTournamentId),
+      (await this.getClient()).from("matches").select("id,event_id").eq("tournament_id", resolvedTournamentId),
       "listTournamentEvents.matches"
     );
 
@@ -234,7 +242,7 @@ export class SupabaseRepository implements AppRepository {
     const resolvedTournamentId = resolveId(tournamentId);
     await this.ensureTournamentInOrganization(resolvedTournamentId, "listTournamentMatches.tournament");
     const matches = await this.query<MatchRow[]>(
-      this.client
+      (await this.getClient())
         .from("matches")
         .select("*")
         .eq("tournament_id", resolvedTournamentId)
@@ -252,7 +260,7 @@ export class SupabaseRepository implements AppRepository {
     const resolvedTournamentId = resolveId(tournamentId);
     const organizationId = await this.getOrganizationId();
     const event = await this.querySingle<TournamentEventRow>(
-      this.client
+      (await this.getClient())
         .from("tournament_events")
         .select("*")
         .eq("id", resolveId(input.eventId))
@@ -265,7 +273,7 @@ export class SupabaseRepository implements AppRepository {
     }
 
     const tournament = await this.querySingle<TournamentRow>(
-      this.client
+      (await this.getClient())
         .from("tournaments")
         .select("*")
         .eq("id", resolvedTournamentId)
@@ -290,7 +298,7 @@ export class SupabaseRepository implements AppRepository {
           : matchPlayers.player2.id;
 
     const inserted = await this.querySingle<MatchRow>(
-      this.client
+      (await this.getClient())
         .from("matches")
         .insert({
           tournament_id: resolvedTournamentId,
@@ -320,7 +328,7 @@ export class SupabaseRepository implements AppRepository {
 
   async getRankingSnapshot(snapshotId: string) {
     const snapshot = await this.querySingle<RankingSnapshotRow>(
-      this.client
+      (await this.getClient())
         .from("ranking_snapshots")
         .select("*")
         .eq("id", resolveId(snapshotId))
@@ -333,7 +341,7 @@ export class SupabaseRepository implements AppRepository {
     await this.ensureTournamentInOrganization(snapshot.tournament_id, "getRankingSnapshot.tournament");
 
     const items = await this.query<RankingSnapshotItemRow[]>(
-      this.client
+      (await this.getClient())
         .from("ranking_snapshot_items")
         .select("*")
         .eq("snapshot_id", snapshot.id)
@@ -376,12 +384,12 @@ export class SupabaseRepository implements AppRepository {
       await this.ensureEventInTournament(eventId, tournamentId, weaponTypeId, "buildRankingEngineInput.event");
     }
     const ratings = await this.query<PlayerWeaponRatingRow[]>(
-      this.client.from("player_weapon_ratings").select("*").eq("weapon_type_id", weaponTypeId),
+      (await this.getClient()).from("player_weapon_ratings").select("*").eq("weapon_type_id", weaponTypeId),
       "buildRankingEngineInput.ratings"
     );
     const players = await this.loadPlayersByIds(ratings.map((rating) => rating.player_id));
     const scopedRatings = ratings.filter((rating) => players.has(rating.player_id));
-    let matchesQuery = this.client
+    let matchesQuery = (await this.getClient())
       .from("matches")
       .select("*")
       .eq("tournament_id", tournamentId)
@@ -429,7 +437,7 @@ export class SupabaseRepository implements AppRepository {
       await this.ensureEventInTournament(eventId, tournamentId, weaponTypeId, "createRankingSnapshot.event");
     }
     const tournament = await this.querySingle<TournamentRow>(
-      this.client
+      (await this.getClient())
         .from("tournaments")
         .select("*")
         .eq("id", tournamentId)
@@ -442,7 +450,7 @@ export class SupabaseRepository implements AppRepository {
     }
 
     const snapshot = await this.querySingle<RankingSnapshotRow>(
-      this.client
+      (await this.getClient())
         .from("ranking_snapshots")
         .insert({
           tournament_id: tournamentId,
@@ -475,7 +483,7 @@ export class SupabaseRepository implements AppRepository {
 
     if (items.length > 0) {
       await this.query<RankingSnapshotItemRow[]>(
-        this.client.from("ranking_snapshot_items").insert(items).select("*"),
+        (await this.getClient()).from("ranking_snapshot_items").insert(items).select("*"),
         "createRankingSnapshot.items"
       );
     }
@@ -503,7 +511,7 @@ export class SupabaseRepository implements AppRepository {
   async getPublicRankingPage(pageId: string) {
     const organizationId = await this.getOrganizationId();
     const page = await this.querySingle<PublicPageRow>(
-      this.client
+      (await this.getClient())
         .from("public_pages")
         .select("*")
         .eq("organization_id", organizationId)
@@ -550,6 +558,14 @@ export class SupabaseRepository implements AppRepository {
     } satisfies PublicRankingPagePayload;
   }
 
+  private async getClient() {
+    if (!this.clientPromise) {
+      this.clientPromise = Promise.resolve(this.clientProvider());
+    }
+
+    return this.clientPromise;
+  }
+
   private async loadPlayersByIds(playerIds: string[]) {
     const uniqueIds = Array.from(new Set(playerIds)).filter(Boolean);
     if (uniqueIds.length === 0) {
@@ -558,7 +574,7 @@ export class SupabaseRepository implements AppRepository {
 
     const organizationId = await this.getOrganizationId();
     const players = await this.query<PlayerRow[]>(
-      this.client
+      (await this.getClient())
         .from("players")
         .select("*")
         .eq("organization_id", organizationId)
@@ -580,7 +596,7 @@ export class SupabaseRepository implements AppRepository {
   private async resolveOrganizationId() {
     if (this.context.organizationId) {
       const organization = await this.querySingle<OrganizationRow>(
-        this.client
+        (await this.getClient())
           .from("organizations")
           .select("*")
           .eq("id", this.context.organizationId)
@@ -600,7 +616,7 @@ export class SupabaseRepository implements AppRepository {
       process.env.HEIMA_RATINGS_ORGANIZATION_SLUG ??
       defaultOrganizationSlug;
     const organization = await this.querySingle<OrganizationRow>(
-      this.client.from("organizations").select("*").eq("slug", slug).maybeSingle(),
+      (await this.getClient()).from("organizations").select("*").eq("slug", slug).maybeSingle(),
       "resolveOrganizationId"
     );
 
@@ -614,7 +630,7 @@ export class SupabaseRepository implements AppRepository {
   private async ensureTournamentInOrganization(tournamentId: string, operation: string) {
     const organizationId = await this.getOrganizationId();
     const tournament = await this.querySingle<Pick<TournamentRow, "id">>(
-      this.client
+      (await this.getClient())
         .from("tournaments")
         .select("id")
         .eq("id", tournamentId)
@@ -631,7 +647,7 @@ export class SupabaseRepository implements AppRepository {
   private async ensureWeaponInOrganization(weaponTypeId: string, operation: string) {
     const organizationId = await this.getOrganizationId();
     const weapon = await this.querySingle<Pick<WeaponTypeRow, "id">>(
-      this.client
+      (await this.getClient())
         .from("weapon_types")
         .select("id")
         .eq("id", weaponTypeId)
@@ -652,7 +668,7 @@ export class SupabaseRepository implements AppRepository {
     operation: string
   ) {
     const event = await this.querySingle<Pick<TournamentEventRow, "id">>(
-      this.client
+      (await this.getClient())
         .from("tournament_events")
         .select("id")
         .eq("id", eventId)
@@ -669,7 +685,7 @@ export class SupabaseRepository implements AppRepository {
 
   private async findPlayersByNames(organizationId: string, player1Name: string, player2Name: string) {
     const players = await this.query<PlayerRow[]>(
-      this.client
+      (await this.getClient())
         .from("players")
         .select("*")
         .eq("organization_id", organizationId)
@@ -693,7 +709,7 @@ export class SupabaseRepository implements AppRepository {
   private async listPublicPageSnapshots(publicPageId: string) {
     try {
       return await this.query<PublicPageSnapshotRow[]>(
-        this.client
+        (await this.getClient())
           .from("public_page_snapshots")
           .select("*")
           .eq("public_page_id", publicPageId)
@@ -718,7 +734,7 @@ export class SupabaseRepository implements AppRepository {
   ) {
     const organizationId = await this.getOrganizationId();
     const existingPage = await this.querySingle<PublicPageRow>(
-      this.client
+      (await this.getClient())
         .from("public_pages")
         .select("*")
         .eq("organization_id", organizationId)
@@ -729,7 +745,7 @@ export class SupabaseRepository implements AppRepository {
 
     if (existingPage) {
       const updated = await this.querySingle<PublicPageRow>(
-        this.client
+        (await this.getClient())
           .from("public_pages")
           .update({
             tournament_id: tournamentId,
@@ -750,7 +766,7 @@ export class SupabaseRepository implements AppRepository {
     }
 
     const inserted = await this.querySingle<PublicPageRow>(
-      this.client
+      (await this.getClient())
         .from("public_pages")
         .insert({
           organization_id: organizationId,
@@ -780,7 +796,7 @@ export class SupabaseRepository implements AppRepository {
   ) {
     const organizationId = await this.getOrganizationId();
     const weapon = await this.querySingle<WeaponTypeRow>(
-      this.client
+      (await this.getClient())
         .from("weapon_types")
         .select("*")
         .eq("id", weaponTypeId)
@@ -793,7 +809,7 @@ export class SupabaseRepository implements AppRepository {
     }
 
     await this.query<PublicPageSnapshotRow[]>(
-      this.client
+      (await this.getClient())
         .from("public_page_snapshots")
         .upsert(
           {
@@ -816,7 +832,7 @@ export class SupabaseRepository implements AppRepository {
     snapshotId: string
   ) {
     await this.query<PublicPageRow[]>(
-      this.client
+      (await this.getClient())
         .from("public_pages")
         .update({
           snapshot_id: snapshotId,

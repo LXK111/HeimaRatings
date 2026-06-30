@@ -2,7 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getRepository } from "@/lib/server/repositories/factory";
+import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ interface TournamentEventsPageProps {
 
 export default async function TournamentEventsPage({ params }: TournamentEventsPageProps) {
   const { id } = await params;
-  const repository = getRepository(await getServerRepositoryContext());
+  const repository = await getRequestRepository(await getServerRepositoryContext());
   const [tournamentEvents, weaponTypes] = await Promise.all([
     repository.listTournamentEvents(id),
     repository.listWeapons()

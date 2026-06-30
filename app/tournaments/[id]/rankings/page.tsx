@@ -1,13 +1,13 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { RankingBoard } from "@/components/rankings/ranking-board";
 import { Panel } from "@/components/ui/panel";
-import { getRepository } from "@/lib/server/repositories/factory";
+import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function RankingsPage() {
-  const repository = getRepository(await getServerRepositoryContext());
+  const repository = await getRequestRepository(await getServerRepositoryContext());
   const page = await repository.getPublicRankingPage("demo");
   const enabledWeapons = page?.weapons.filter((weapon) => weapon.enabled) ?? [];
 
