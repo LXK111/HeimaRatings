@@ -28,6 +28,7 @@
 | v2.2 | 2026-06-29 | Codex | 更新阶段 21 最小 Supabase Auth 登录保护状态 |
 | v2.3 | 2026-06-30 | Codex | 更新阶段 22 成员组织授权收敛状态 |
 | v2.4 | 2026-06-30 | Codex | 更新阶段 23 用户 JWT Repository 与 RLS 接管状态 |
+| v2.5 | 2026-06-30 | Codex | 更新阶段 24 数据库写权限 RLS 收紧状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -55,7 +56,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 23：用户 JWT Repository 与 RLS 接管。
+当前已推进到阶段 24：数据库写权限 RLS 收紧。
 
 已完成阶段：
 
@@ -83,6 +84,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 21：新增 Supabase Auth email/password 登录页，管理端页面和管理 API 在 Supabase 模式下要求登录。
 - 阶段 22：管理端组织上下文按 `organization_members` 授权，组织切换只展示成员组织，写入接口要求 `admin` 或 `editor`。
 - 阶段 23：管理端页面和管理 API 在 Supabase 登录保护开启时使用用户会话 client 访问数据库，让 RLS 参与服务端读写路径。
+- 阶段 24：数据库 RLS 写权限从“组织成员可写”收紧为“组织 admin/editor 可写”，并补充真库验证 SQL。
 
 当前阶段边界：
 
@@ -100,6 +102,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 数据库迁移已补充 `public_pages(organization_id, page_id)` 唯一约束和关键写入路径的组织一致性 trigger。
 - 可通过 `DATABASE_URL="postgresql://..." npm run db:verify` 对真库组织隔离约束做事务内验收。
 - 数据库侧已具备组织成员和 RLS 基础策略；管理端 Repository 在 Supabase 登录保护开启时会使用当前用户会话 client，让 RLS 参与服务端读写路径。
+- 数据库 RLS 已将核心业务表写权限收紧到 `admin/editor`，`viewer` 只能读取所属组织数据。
 - 管理端页面和 API 会从请求中的 `x-heima-organization-id`、`x-heima-organization-slug`、`heima_organization_id`、`heima_organization_slug` 解析期望组织；Supabase 登录保护开启时，会再按当前用户的 `organization_members` 做成员授权。
 - 管理端 Shell 已提供当前组织可视化和组织 slug 切换入口；Supabase 登录保护开启时，列表只展示当前用户所属组织。
 - Supabase 模式默认启用管理端登录保护；可用 `HEIMA_RATINGS_AUTH_REQUIRED=false` 临时关闭。公开榜单和嵌入页继续匿名访问。
@@ -112,7 +115,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
 - 后续增强：为选手、武器、赛事和项目增加真实创建/编辑表单。
 - 后续增强：完善赛事编排、签表、淘汰晋级和项目级排名。
-- 后续增强：补充真库登录会话下的 RLS 端到端验收，并收紧数据库写权限 policy 到 `admin/editor`。
+- 后续增强：执行阶段 24 migration 后做真库登录会话下的 RLS 端到端验收。
 
 ## 遗留 TODO
 

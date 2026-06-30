@@ -40,6 +40,7 @@
 | v3.4 | 2026-06-29 | Codex | 执行阶段 21，新增最小 Supabase Auth 登录保护 |
 | v3.5 | 2026-06-30 | Codex | 执行阶段 22，收敛成员组织授权和管理写权限 |
 | v3.6 | 2026-06-30 | Codex | 执行阶段 23，管理端 Repository 切换用户 JWT client |
+| v3.7 | 2026-06-30 | Codex | 执行阶段 24，收紧数据库写权限 RLS 到 admin/editor |
 
 ## 1. 文档目的
 
@@ -905,3 +906,36 @@ HeimaRatings/
 
 - 管理端从“应用层成员授权 + service role 数据访问”推进到“应用层成员授权 + 用户 JWT/RLS 数据访问”。
 - service role 仍保留给公开读路径和内部授权查询；数据库写权限 policy 细化留到后续阶段。
+
+### 阶段 24：数据库写权限 RLS 收紧
+
+方案细节：
+
+- 阶段 24 的目标是把阶段 22 的 admin/editor 写权限规则下沉到数据库 RLS。
+- 组织成员仍可读取所属组织数据。
+- `viewer` 不再具备核心业务表写权限。
+- `admin/editor` 可执行核心业务表写入、更新和删除。
+- 公开榜单和公开页快照继续允许匿名读取已启用内容。
+
+代码生成记录：
+
+- 已通过 Supabase CLI 生成 migration 文件名 `20260630044713_restrict_rls_write_roles.sql`。
+- 已新增 `HeimaRatings/database/migrations/20260630044713_restrict_rls_write_roles.sql`。
+- 已新增 RLS helper `current_user_can_write_org(organization_id)`。
+- 已将核心业务表旧的 `*_member_manage` policy 拆分为 `select/insert/update/delete`。
+- 已更新 `HeimaRatings/database/validations/202606290004_verify_auth_rls_foundation.sql`，匹配阶段 24 后的最终 policy 状态。
+- 已新增 `HeimaRatings/database/validations/202606300005_verify_rls_write_roles.sql`，验证 viewer/editor 写权限差异。
+- 已创建 `HeimaRatings/docs/stage-24.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- 真库 migration：已由用户执行 `database/migrations/20260630044713_restrict_rls_write_roles.sql`。
+- `npm run db:verify`：已由用户执行完成。
+
+方案变化：
+
+- 权限边界从“应用层阻止 viewer 写入”推进到“应用层 + 数据库 RLS 双层阻止 viewer 写入”。
