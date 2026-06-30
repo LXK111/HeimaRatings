@@ -32,6 +32,7 @@
 | v2.6 | 2026-06-30 | Codex | 更新阶段 25 Supabase Auth/RLS 端到端验收脚本状态 |
 | v2.7 | 2026-06-30 | Codex | 更新阶段 26 管理端 API Cookie 登录态验收脚本状态 |
 | v2.8 | 2026-06-30 | Codex | 更新阶段 27 武器类型真实创建编辑闭环状态 |
+| v2.9 | 2026-06-30 | Codex | 更新阶段 28 选手真实创建编辑闭环状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -59,7 +60,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 27：武器类型真实创建编辑闭环。
+当前已推进到阶段 28：选手真实创建编辑闭环。
 
 已完成阶段：
 
@@ -91,6 +92,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 25：新增 `npm run auth:verify`，用真实 Supabase Auth viewer/editor 账号验证用户 JWT 下的 RLS 读写行为。
 - 阶段 26：新增 `npm run auth:api:verify`，用 Supabase SSR cookie 验证本地 Next 管理 API 的登录态和角色权限。
 - 阶段 27：武器类型管理页新增真实创建/编辑表单，`/api/weapons` 增加 POST/PATCH 写接口，并通过 Repository 持久化到当前组织。
+- 阶段 28：选手管理页新增真实创建/编辑表单，`/api/players` 增加 POST/PATCH 写接口，并在创建选手时初始化已启用武器的分武器积分。
 
 当前阶段边界：
 
@@ -117,12 +119,13 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 可通过 `npm run auth:verify` 使用 viewer/editor 测试账号验证 Supabase Auth JWT 和数据库 RLS 行为。
 - 可通过 `npm run auth:api:verify` 使用 viewer/editor 测试账号验证管理端 API 的 Supabase SSR cookie 登录态。
 - 武器类型管理页已支持新增、编辑、启停和排序，Supabase 模式下写入受当前组织 `admin/editor` 角色和数据库 RLS 约束。
+- 选手管理页已支持新增和编辑基础资料，Supabase 模式下新增选手会为当前组织启用武器初始化分武器积分。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
 
 - 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
-- 后续增强：为选手、赛事和项目增加真实创建/编辑表单。
+- 后续增强：为赛事和项目增加真实创建/编辑表单。
 - 后续增强：完善赛事编排、签表、淘汰晋级和项目级排名。
 - 后续增强：将管理端 API Cookie 验收扩展到浏览器自动化页面流。
 

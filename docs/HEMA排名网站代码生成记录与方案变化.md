@@ -44,6 +44,7 @@
 | v3.8 | 2026-06-30 | Codex | 执行阶段 25，新增 Supabase Auth/RLS 端到端验收脚本 |
 | v3.9 | 2026-06-30 | Codex | 执行阶段 26，新增管理端 API Cookie 登录态验收脚本 |
 | v4.0 | 2026-06-30 | Codex | 执行阶段 27，新增武器类型真实创建编辑闭环 |
+| v4.1 | 2026-06-30 | Codex | 执行阶段 28，新增选手真实创建编辑闭环 |
 
 ## 1. 文档目的
 
@@ -1033,3 +1034,34 @@ HeimaRatings/
 方案变化：
 
 - 管理端基础资料从“Repository 只读展示”推进到“页面表单 + 管理 API + Repository + RLS”的真实写入闭环。
+
+### 阶段 28：选手真实创建编辑闭环
+
+方案细节：
+
+- 阶段 28 的目标是把选手管理从只读推进到真实创建和编辑。
+- 选手是赛事编排、报名、签表和排名计算的核心上游实体，因此优先于复杂赛事编排落地。
+- 新增选手写入 `players`，并为当前组织已启用武器初始化 `player_weapon_ratings`。
+- 编辑选手只维护基础资料，不在本阶段调整已有 rating，避免把资料维护和积分调整混在一起。
+- 页面表单和管理 API 都统一通过 Repository 写入，Supabase 模式继续由用户 JWT 与 RLS 约束真实权限。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增选手创建和编辑契约。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，新增 `players` 创建和编辑持久化路径，并初始化分武器积分。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，补齐 Mock Repository 写入接口。
+- 已更新 `HeimaRatings/app/api/players/route.ts`，新增 `POST` 和 `PATCH`。
+- 已新增 `HeimaRatings/lib/server/player-actions.ts`，为页面表单提供 Server Actions。
+- 已更新 `HeimaRatings/app/players/page.tsx`，新增创建表单和行内编辑表单。
+- 已创建 `HeimaRatings/docs/stage-28.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 管理端基础资料真实写入闭环从武器类型扩展到选手，并补齐选手创建时的分武器积分初始化。

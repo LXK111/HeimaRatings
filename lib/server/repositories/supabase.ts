@@ -29,9 +29,11 @@ import type {
   AppRepository,
   BuildRankingEngineInputOptions,
   CreateMatchInput,
+  CreatePlayerInput,
   CreateRankingSnapshotInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
+  UpdatePlayerInput,
   UpdateWeaponInput
 } from "@/lib/server/repositories/types";
 import type { RepositoryContext } from "@/lib/server/repositories/context";
@@ -212,6 +214,76 @@ export class SupabaseRepository implements AppRepository {
           rank: ranksByWeapon[rating.weapon_type_id]?.[rating.player_id] ?? 0
         }))
     }));
+  }
+
+  async createPlayer(input: CreatePlayerInput) {
+    const organizationId = await this.getOrganizationId();
+    const normalized = normalizePlayerInput(input);
+    const inserted = await this.querySingle<PlayerRow>(
+      (await this.getClient())
+        .from("players")
+        .insert({
+          organization_id: organizationId,
+          name: normalized.name,
+          club: normalized.club
+        })
+        .select("*")
+        .single(),
+      "createPlayer.player"
+    );
+    if (!inserted) {
+      throw new Error("createPlayer failed: inserted player was empty");
+    }
+
+    const enabledWeapons = await this.query<WeaponTypeRow[]>(
+      (await this.getClient())
+        .from("weapon_types")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("enabled", true)
+        .order("sort_order", { ascending: true }),
+      "createPlayer.weapons"
+    );
+
+    if (enabledWeapons.length > 0) {
+      const initialRating = normalized.initialRating;
+      await this.query<PlayerWeaponRatingRow[]>(
+        (await this.getClient())
+          .from("player_weapon_ratings")
+          .insert(
+            enabledWeapons.map((weapon) => ({
+              player_id: inserted.id,
+              weapon_type_id: weapon.id,
+              initial_rating: initialRating,
+              current_rating: initialRating
+            }))
+          )
+          .select("*"),
+        "createPlayer.ratings"
+      );
+    }
+
+    return this.getPlayerSummary(inserted.id);
+  }
+
+  async updatePlayer(input: UpdatePlayerInput) {
+    const organizationId = await this.getOrganizationId();
+    const updates = normalizePlayerUpdate(input);
+    const updated = await this.querySingle<PlayerRow>(
+      (await this.getClient())
+        .from("players")
+        .update(updates)
+        .eq("id", input.id)
+        .eq("organization_id", organizationId)
+        .select("*")
+        .single(),
+      "updatePlayer"
+    );
+    if (!updated) {
+      throw new Error("Player not found");
+    }
+
+    return this.getPlayerSummary(updated.id);
   }
 
   async listTournaments() {
@@ -602,6 +674,15 @@ export class SupabaseRepository implements AppRepository {
       embedUrl,
       iframeCode: `<iframe src="${embedUrl}" title="HEMA Rankings" width="100%" height="640" style="border:0;border-radius:24px;"></iframe>`
     } satisfies PublicRankingPagePayload;
+  }
+
+  private async getPlayerSummary(playerId: string) {
+    const player = (await this.listPlayers()).find((item) => item.id === playerId);
+    if (!player) {
+      throw new Error("Player not found");
+    }
+
+    return player;
   }
 
   private async getClient() {
@@ -1003,6 +1084,31 @@ function normalizeWeaponUpdate(input: UpdateWeaponInput) {
   return updates;
 }
 
+function normalizePlayerInput(input: CreatePlayerInput) {
+  return {
+    name: normalizeRequiredText(input.name, "name"),
+    club: normalizeOptionalText(input.club),
+    initialRating: normalizeInitialRating(input.initialRating)
+  };
+}
+
+function normalizePlayerUpdate(input: UpdatePlayerInput) {
+  const updates: Partial<Pick<PlayerRow, "name" | "club">> = {};
+
+  if (input.name !== undefined) {
+    updates.name = normalizeRequiredText(input.name, "name");
+  }
+  if (input.club !== undefined) {
+    updates.club = normalizeOptionalText(input.club);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new Error("At least one player field is required");
+  }
+
+  return updates;
+}
+
 function normalizeRequiredText(value: string, fieldName: string) {
   const normalized = value.trim();
   if (!normalized) {
@@ -1010,6 +1116,20 @@ function normalizeRequiredText(value: string, fieldName: string) {
   }
 
   return normalized;
+}
+
+function normalizeOptionalText(value: string | undefined) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function normalizeInitialRating(value: number | undefined) {
+  const rating = value ?? 1500;
+  if (!Number.isFinite(rating) || rating < 0) {
+    throw new Error("initialRating must be a non-negative number");
+  }
+
+  return rating;
 }
 
 function normalizeWeaponSlug(value: string) {

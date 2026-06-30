@@ -15,9 +15,11 @@ import type {
   AppRepository,
   BuildRankingEngineInputOptions,
   CreateMatchInput,
+  CreatePlayerInput,
   CreateRankingSnapshotInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
+  UpdatePlayerInput,
   UpdateWeaponInput
 } from "@/lib/server/repositories/types";
 
@@ -80,6 +82,34 @@ export class MockRepository implements AppRepository {
 
   async listPlayers() {
     return listPlayers();
+  }
+
+  async createPlayer(input: CreatePlayerInput) {
+    const now = Date.now();
+    const enabledWeapons = listWeapons().filter((weapon) => weapon.enabled);
+    return {
+      id: `player-mock-${now}`,
+      name: input.name,
+      club: input.club?.trim() || "未知俱乐部",
+      weaponRatings: enabledWeapons.map((weapon, index) => ({
+        weaponTypeId: weapon.id,
+        rating: input.initialRating ?? 1500,
+        rank: index + 1
+      }))
+    };
+  }
+
+  async updatePlayer(input: UpdatePlayerInput) {
+    const existing = listPlayers().find((player) => player.id === input.id);
+    if (!existing) {
+      throw new Error("Player not found");
+    }
+
+    return {
+      ...existing,
+      name: input.name ?? existing.name,
+      club: input.club?.trim() || existing.club
+    };
   }
 
   async listTournaments() {

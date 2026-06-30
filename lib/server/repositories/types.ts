@@ -58,6 +58,18 @@ export interface UpdateWeaponInput {
   sortOrder?: number;
 }
 
+export interface CreatePlayerInput {
+  name: string;
+  club?: string;
+  initialRating?: number;
+}
+
+export interface UpdatePlayerInput {
+  id: string;
+  name?: string;
+  club?: string;
+}
+
 export interface AppRepository {
   listOrganizations(): Promise<Organization[]>;
   listUserOrganizationMemberships(userId: string): Promise<OrganizationMembership[]>;
@@ -65,6 +77,8 @@ export interface AppRepository {
   createWeapon(input: CreateWeaponInput): Promise<WeaponType>;
   updateWeapon(input: UpdateWeaponInput): Promise<WeaponType>;
   listPlayers(): Promise<PlayerSummary[]>;
+  createPlayer(input: CreatePlayerInput): Promise<PlayerSummary>;
+  updatePlayer(input: UpdatePlayerInput): Promise<PlayerSummary>;
   listTournaments(): Promise<TournamentSummary[]>;
   getTournament(id: string): Promise<TournamentSummary | undefined>;
   listTournamentEvents(tournamentId: string): Promise<TournamentEventSummary[]>;
