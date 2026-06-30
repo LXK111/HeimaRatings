@@ -625,6 +625,84 @@ export class SupabaseRepository implements AppRepository {
     ]));
   }
 
+  async generateTournamentEventBracket(tournamentId: string, eventId: string) {
+    const resolvedTournamentId = resolveId(tournamentId);
+    const resolvedEventId = resolveId(eventId);
+    await this.ensureEventInCurrentTournament(resolvedTournamentId, resolvedEventId, "generateBracket.event");
+    const event = await this.querySingle<TournamentEventRow>(
+      (await this.getClient())
+        .from("tournament_events")
+        .select("*")
+        .eq("id", resolvedEventId)
+        .eq("tournament_id", resolvedTournamentId)
+        .maybeSingle(),
+      "generateBracket.loadEvent"
+    );
+    if (!event) {
+      throw new Error("Tournament event not found");
+    }
+
+    const existingMatches = await this.query<Pick<MatchRow, "id">[]>(
+      (await this.getClient())
+        .from("matches")
+        .select("id")
+        .eq("tournament_id", resolvedTournamentId)
+        .eq("event_id", resolvedEventId)
+        .limit(1),
+      "generateBracket.existingMatches"
+    );
+    if (existingMatches.length > 0) {
+      throw new Error("Tournament event already has matches");
+    }
+
+    const entries = await this.query<TournamentEventEntryRow[]>(
+      (await this.getClient())
+        .from("tournament_event_entries")
+        .select("*")
+        .eq("event_id", resolvedEventId)
+        .eq("status", "registered")
+        .order("seed", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true }),
+      "generateBracket.entries"
+    );
+    if (entries.length < 2) {
+      throw new Error("At least two registered entries are required");
+    }
+
+    const pairs = event.format === "single_elimination"
+      ? buildSingleEliminationEntryPairs(entries)
+      : event.format === "round_robin"
+        ? buildRoundRobinEntryPairs(entries)
+        : undefined;
+    if (!pairs) {
+      throw new Error("Bracket generation is only available for single elimination and round robin events");
+    }
+
+    const inserted = await this.query<MatchRow[]>(
+      (await this.getClient())
+        .from("matches")
+        .insert(
+          pairs.map(([player1, player2]) => ({
+            tournament_id: resolvedTournamentId,
+            event_id: resolvedEventId,
+            weapon_type_id: event.weapon_type_id,
+            round: 1,
+            player1_id: player1.player_id,
+            player2_id: player2.player_id,
+            score1: 0,
+            score2: 0,
+            winner_id: null,
+            played_at: null
+          }))
+        )
+        .select("*"),
+      "generateBracket.insertMatches"
+    );
+    const players = await this.loadPlayersByIds(collectPlayerIds(inserted));
+
+    return inserted.map((match) => toMatchSummary(match, players));
+  }
+
   async getRankingSnapshot(snapshotId: string) {
     const snapshot = await this.querySingle<RankingSnapshotRow>(
       (await this.getClient())
@@ -1600,6 +1678,30 @@ function groupMatchesByRound(matches: MatchRow[], players: Map<string, PlayerRow
     .map(Number)
     .sort((a, b) => a - b)
     .map((round) => grouped[round]);
+}
+
+function buildSingleEliminationEntryPairs(entries: TournamentEventEntryRow[]) {
+  const pairs: Array<[TournamentEventEntryRow, TournamentEventEntryRow]> = [];
+  let left = 0;
+  let right = entries.length - 1;
+  while (left < right) {
+    pairs.push([entries[left], entries[right]]);
+    left += 1;
+    right -= 1;
+  }
+
+  return pairs;
+}
+
+function buildRoundRobinEntryPairs(entries: TournamentEventEntryRow[]) {
+  const pairs: Array<[TournamentEventEntryRow, TournamentEventEntryRow]> = [];
+  for (let i = 0; i < entries.length; i += 1) {
+    for (let j = i + 1; j < entries.length; j += 1) {
+      pairs.push([entries[i], entries[j]]);
+    }
+  }
+
+  return pairs;
 }
 
 function collectPlayerIds(matches: MatchRow[]) {

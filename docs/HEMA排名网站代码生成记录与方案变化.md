@@ -48,6 +48,7 @@
 | v4.2 | 2026-06-30 | Codex | 执行阶段 29，新增赛事真实创建编辑闭环 |
 | v4.3 | 2026-06-30 | Codex | 执行阶段 30，新增比赛项目真实创建编辑闭环 |
 | v4.4 | 2026-06-30 | Codex | 执行阶段 31，新增项目参赛名单闭环 |
+| v4.5 | 2026-06-30 | Codex | 执行阶段 32，新增签表生成最小闭环 |
 
 ## 1. 文档目的
 
@@ -1166,3 +1167,35 @@ HeimaRatings/
 方案变化：
 
 - 签表输入从隐含的 demo 选手推进到真实的项目参赛名单模型；后续签表生成可以直接消费 `tournament_event_entries`。
+
+### 阶段 32：签表生成最小闭环
+
+方案细节：
+
+- 阶段 32 的目标是从项目参赛名单生成初始对阵草稿。
+- 本阶段不新增签表表，先复用现有 `matches` 表保存对阵草稿。
+- 只使用 `registered` 参赛名单，按 seed 排序。
+- 单败淘汰按首尾种子配对生成第 1 轮。
+- 循环赛生成全部两两对阵。
+- 已有 matches 时拒绝重复生成，避免覆盖真实比赛结果。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增签表生成契约。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，新增基于参赛名单生成 matches 的实现。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，补齐 Mock Repository 签表生成接口。
+- 已新增 `HeimaRatings/app/api/tournaments/[id]/events/[eventId]/bracket/generate/route.ts`。
+- 已新增 `HeimaRatings/lib/server/bracket-actions.ts`。
+- 已更新 `HeimaRatings/app/tournaments/[id]/events/page.tsx`，增加签表生成按钮和可生成状态提示。
+- 已创建 `HeimaRatings/docs/stage-32.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 签表从“只有参赛名单输入”推进到“可生成对阵草稿”，后续淘汰晋级可在 `matches` 基础上继续推进。

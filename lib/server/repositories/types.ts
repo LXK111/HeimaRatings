@@ -148,6 +148,7 @@ export interface AppRepository {
   ): Promise<TournamentEventEntrySummary>;
   listTournamentMatches(tournamentId: string): Promise<MatchSummary[]>;
   createMatch(tournamentId: string, input: CreateMatchInput): Promise<MatchSummary>;
+  generateTournamentEventBracket(tournamentId: string, eventId: string): Promise<MatchSummary[]>;
   getRankingSnapshot(snapshotId: string): Promise<RankingSnapshotPayload>;
   buildRankingEngineInput(options: BuildRankingEngineInputOptions): Promise<RankingEngineInput>;
   createRankingSnapshot(

@@ -239,6 +239,45 @@ export class MockRepository implements AppRepository {
     return createMatchDraft(tournamentId, input);
   }
 
+  async generateTournamentEventBracket(tournamentId: string, eventId: string) {
+    const event = listTournamentEvents(tournamentId).find((item) => item.id === eventId);
+    if (!event) {
+      throw new Error("Tournament event not found");
+    }
+    if (listTournamentMatches(tournamentId).some((match) => match.eventId === eventId)) {
+      throw new Error("Tournament event already has matches");
+    }
+
+    const entries = listTournamentEventEntries(eventId)
+      .filter((entry) => entry.status === "registered")
+      .sort(compareEntriesBySeed);
+    if (entries.length < 2) {
+      throw new Error("At least two registered entries are required");
+    }
+
+    const pairs = event.format === "single_elimination"
+      ? buildSingleEliminationPairs(entries)
+      : event.format === "round_robin"
+        ? buildRoundRobinPairs(entries)
+        : undefined;
+    if (!pairs) {
+      throw new Error("Bracket generation is only available for single elimination and round robin events");
+    }
+
+    return pairs.map(([player1, player2], index) => ({
+      id: `match-bracket-mock-${Date.now()}-${index + 1}`,
+      tournamentId,
+      eventId,
+      weaponTypeId: event.weaponTypeId,
+      round: 1,
+      player1Name: player1.playerName,
+      player2Name: player2.playerName,
+      score1: 0,
+      score2: 0,
+      winnerName: "平局"
+    }));
+  }
+
   async getRankingSnapshot(snapshotId: string) {
     return getRankingSnapshot(snapshotId);
   }
@@ -264,4 +303,40 @@ export class MockRepository implements AppRepository {
   async getPublicRankingPage(pageId: string) {
     return getPublicRankingPage(pageId);
   }
+}
+
+type MockBracketEntry = Awaited<ReturnType<typeof listTournamentEventEntries>>[number];
+
+function compareEntriesBySeed(a: MockBracketEntry, b: MockBracketEntry) {
+  const seedA = a.seed ?? Number.MAX_SAFE_INTEGER;
+  const seedB = b.seed ?? Number.MAX_SAFE_INTEGER;
+  if (seedA !== seedB) {
+    return seedA - seedB;
+  }
+
+  return a.playerName.localeCompare(b.playerName);
+}
+
+function buildSingleEliminationPairs(entries: MockBracketEntry[]) {
+  const pairs: Array<[MockBracketEntry, MockBracketEntry]> = [];
+  let left = 0;
+  let right = entries.length - 1;
+  while (left < right) {
+    pairs.push([entries[left], entries[right]]);
+    left += 1;
+    right -= 1;
+  }
+
+  return pairs;
+}
+
+function buildRoundRobinPairs(entries: MockBracketEntry[]) {
+  const pairs: Array<[MockBracketEntry, MockBracketEntry]> = [];
+  for (let i = 0; i < entries.length; i += 1) {
+    for (let j = i + 1; j < entries.length; j += 1) {
+      pairs.push([entries[i], entries[j]]);
+    }
+  }
+
+  return pairs;
 }

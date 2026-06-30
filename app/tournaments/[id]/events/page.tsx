@@ -2,6 +2,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import type { TournamentEventEntrySummary } from "@/lib/domain/types";
+import { generateTournamentEventBracketAction } from "@/lib/server/bracket-actions";
 import {
   createTournamentEventEntryAction,
   updateTournamentEventEntryAction
@@ -24,7 +26,7 @@ export default async function TournamentEventsPage({ params }: TournamentEventsP
     repository.listWeapons(),
     repository.listPlayers()
   ]);
-  const entriesByEvent = Object.fromEntries(
+  const entriesByEvent: Record<string, TournamentEventEntrySummary[]> = Object.fromEntries(
     await Promise.all(
       tournamentEvents.map(async (event) => [
         event.id,
@@ -69,6 +71,7 @@ export default async function TournamentEventsPage({ params }: TournamentEventsP
           rows={tournamentEvents.map((event) => {
             const weapon = weaponTypes.find((item) => item.id === event.weaponTypeId);
             const entries = entriesByEvent[event.id] ?? [];
+            const registeredEntries = entries.filter((entry) => entry.status === "registered");
             return [
               <span className="font-black text-stone-50" key="name">{event.name}</span>,
               <StatusBadge key="weapon" label={weapon?.name ?? "未知武器"} tone="brass" />,
@@ -78,7 +81,14 @@ export default async function TournamentEventsPage({ params }: TournamentEventsP
                 label={event.status === "active" ? "进行中" : "草稿"}
                 tone={event.status === "active" ? "green" : "muted"}
               />,
-              event.matchCount,
+              <BracketGenerateForm
+                eventId={event.id}
+                eventFormat={event.format}
+                matchCount={event.matchCount}
+                registeredCount={registeredEntries.length}
+                tournamentId={id}
+                key="bracket"
+              />,
               <div className="grid min-w-[520px] gap-4" key="entries">
                 <AddEntryForm entries={entries} eventId={event.id} players={players} tournamentId={id} />
                 <EntryList entries={entries} eventId={event.id} tournamentId={id} />
@@ -115,6 +125,53 @@ export default async function TournamentEventsPage({ params }: TournamentEventsP
       </Panel>
     </AppShell>
   );
+}
+
+function BracketGenerateForm({
+  eventFormat,
+  eventId,
+  matchCount,
+  registeredCount,
+  tournamentId
+}: {
+  eventFormat: string;
+  eventId: string;
+  matchCount: number;
+  registeredCount: number;
+  tournamentId: string;
+}) {
+  const reason = getBracketUnavailableReason(eventFormat, matchCount, registeredCount);
+  return (
+    <form action={generateTournamentEventBracketAction} className="grid min-w-[180px] gap-2">
+      <input name="tournamentId" type="hidden" value={tournamentId} />
+      <input name="eventId" type="hidden" value={eventId} />
+      <div className="text-xs font-bold text-stone-400">
+        {matchCount > 0 ? `${matchCount} 场已生成` : `${registeredCount} 人可生成`}
+      </div>
+      <button
+        className="h-10 rounded-2xl border border-brass-400/40 px-4 text-xs font-black text-brass-300 transition hover:border-brass-300 hover:text-brass-100 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={Boolean(reason)}
+        type="submit"
+      >
+        生成签表
+      </button>
+      {reason ? <span className="text-xs font-bold text-stone-500">{reason}</span> : null}
+    </form>
+  );
+}
+
+function getBracketUnavailableReason(eventFormat: string, matchCount: number, registeredCount: number) {
+  if (matchCount > 0) {
+    return "已有对阵";
+  }
+  if (registeredCount < 2) {
+    return "参赛少于 2 人";
+  }
+  if (eventFormat !== "single_elimination" && eventFormat !== "round_robin") {
+    return "暂不支持该赛制";
+  }
+
+  return undefined;
 }
 
 function AddEntryForm({
