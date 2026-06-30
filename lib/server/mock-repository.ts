@@ -181,7 +181,8 @@ export function appendMatchDrafts(drafts: MatchSummary[]) {
 export function buildRankingEngineInput(
   algorithm: RankingAlgorithm = "hybrid",
   weaponTypeId = "weapon-longsword",
-  tournamentId = "tournament-001"
+  tournamentId = "tournament-001",
+  eventId?: string
 ): RankingEngineInput {
   const playerInputs = players
     .map((player) => {
@@ -205,6 +206,7 @@ export function buildRankingEngineInput(
 
   const groupedMatches = listTournamentMatches(tournamentId)
     .filter((match) => match.weaponTypeId === weaponTypeId)
+    .filter((match) => (eventId ? match.eventId === eventId : true))
     .reduce<Record<number, typeof matches>>((acc, match) => {
       acc[match.round] = [...(acc[match.round] ?? []), match];
       return acc;
@@ -213,6 +215,7 @@ export function buildRankingEngineInput(
   return {
     tournamentId,
     weaponTypeId,
+    eventId,
     algorithm,
     players: playerInputs,
     matches: Object.keys(groupedMatches)

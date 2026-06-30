@@ -328,7 +328,12 @@ export class MockRepository implements AppRepository {
   }
 
   async buildRankingEngineInput(options: BuildRankingEngineInputOptions) {
-    return buildRankingEngineInput(options.algorithm, options.weaponTypeId, options.tournamentId);
+    return buildRankingEngineInput(
+      options.algorithm,
+      options.weaponTypeId,
+      options.tournamentId,
+      options.eventId
+    );
   }
 
   async createRankingSnapshot(

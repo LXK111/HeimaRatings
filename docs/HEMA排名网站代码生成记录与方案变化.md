@@ -50,6 +50,7 @@
 | v4.4 | 2026-06-30 | Codex | 执行阶段 31，新增项目参赛名单闭环 |
 | v4.5 | 2026-06-30 | Codex | 执行阶段 32，新增签表生成最小闭环 |
 | v4.6 | 2026-06-30 | Codex | 执行阶段 33，新增淘汰晋级最小闭环 |
+| v4.7 | 2026-06-30 | Codex | 执行阶段 34，新增项目级排名闭环 |
 
 ## 1. 文档目的
 
@@ -1232,3 +1233,32 @@ HeimaRatings/
 方案变化：
 
 - 签表从“生成初始对阵”推进到“比赛结果驱动晋级”，后续可以继续补项目级排名、轮空落位和签表可视化。
+
+### 阶段 34：项目级排名闭环
+
+方案细节：
+
+- 阶段 34 的目标是让项目级排名成为管理端可操作的一等能力。
+- 现有排名 API 和 Supabase Repository 已支持 `eventId`，本阶段主要补管理端入口。
+- 排名页可以选择比赛项目、算法，计算项目级排名。
+- 保存项目快照时继续复用 `ranking_snapshots.event_id`。
+- 项目级榜单暂不进入公开页，避免一次性扩大公开页模型。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/mock-repository.ts`，让 Mock 排名输入支持按 `eventId` 过滤比赛。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，向 Mock 排名输入传递 `eventId`。
+- 已新增 `HeimaRatings/components/rankings/event-ranking-workbench.tsx`，提供项目级排名计算和快照保存 UI。
+- 已更新 `HeimaRatings/app/tournaments/[id]/rankings/page.tsx`，读取赛事项目、选手和武器并展示项目级排名工作台。
+- 已创建 `HeimaRatings/docs/stage-34.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 排名链路从“按赛事/武器计算”推进到“按比赛项目计算并保存快照”，形成参赛名单、签表、比赛结果、晋级和项目榜的管理端闭环。
