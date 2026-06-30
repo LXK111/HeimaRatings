@@ -19,6 +19,7 @@ import type {
   PublicPageSnapshotRow,
   RankingSnapshotItemRow,
   RankingSnapshotRow,
+  TournamentEventEntryRow,
   TournamentEventRow,
   TournamentRow,
   WeaponTypeRow
@@ -31,11 +32,13 @@ import type {
   CreateMatchInput,
   CreatePlayerInput,
   CreateRankingSnapshotInput,
+  CreateTournamentEventEntryInput,
   CreateTournamentEventInput,
   CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
   UpdatePlayerInput,
+  UpdateTournamentEventEntryInput,
   UpdateTournamentEventInput,
   UpdateTournamentInput,
   UpdateWeaponInput
@@ -460,6 +463,80 @@ export class SupabaseRepository implements AppRepository {
     return this.getTournamentEventSummary(resolvedTournamentId, updated.id);
   }
 
+  async listTournamentEventEntries(tournamentId: string, eventId: string) {
+    const resolvedTournamentId = resolveId(tournamentId);
+    const resolvedEventId = resolveId(eventId);
+    await this.ensureEventInCurrentTournament(resolvedTournamentId, resolvedEventId, "listTournamentEventEntries.event");
+    const entries = await this.query<TournamentEventEntryRow[]>(
+      (await this.getClient())
+        .from("tournament_event_entries")
+        .select("*")
+        .eq("event_id", resolvedEventId)
+        .order("seed", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true }),
+      "listTournamentEventEntries.entries"
+    );
+    const players = await this.loadPlayersByIds(entries.map((entry) => entry.player_id));
+
+    return entries.map((entry) => toTournamentEventEntrySummary(entry, players));
+  }
+
+  async createTournamentEventEntry(
+    tournamentId: string,
+    eventId: string,
+    input: CreateTournamentEventEntryInput
+  ) {
+    const resolvedTournamentId = resolveId(tournamentId);
+    const resolvedEventId = resolveId(eventId);
+    const normalized = normalizeTournamentEventEntryInput(input);
+    await this.ensureEventInCurrentTournament(resolvedTournamentId, resolvedEventId, "createTournamentEventEntry.event");
+    await this.ensurePlayerInOrganization(resolveId(normalized.playerId), "createTournamentEventEntry.player");
+    const inserted = await this.querySingle<TournamentEventEntryRow>(
+      (await this.getClient())
+        .from("tournament_event_entries")
+        .insert({
+          event_id: resolvedEventId,
+          player_id: resolveId(normalized.playerId),
+          seed: normalized.seed,
+          status: "registered"
+        })
+        .select("*")
+        .single(),
+      "createTournamentEventEntry"
+    );
+    if (!inserted) {
+      throw new Error("createTournamentEventEntry failed: inserted entry was empty");
+    }
+
+    return this.getTournamentEventEntrySummary(resolvedTournamentId, resolvedEventId, inserted.id);
+  }
+
+  async updateTournamentEventEntry(
+    tournamentId: string,
+    eventId: string,
+    input: UpdateTournamentEventEntryInput
+  ) {
+    const resolvedTournamentId = resolveId(tournamentId);
+    const resolvedEventId = resolveId(eventId);
+    await this.ensureEventInCurrentTournament(resolvedTournamentId, resolvedEventId, "updateTournamentEventEntry.event");
+    const updates = normalizeTournamentEventEntryUpdate(input);
+    const updated = await this.querySingle<TournamentEventEntryRow>(
+      (await this.getClient())
+        .from("tournament_event_entries")
+        .update(updates)
+        .eq("id", resolveId(input.id))
+        .eq("event_id", resolvedEventId)
+        .select("*")
+        .single(),
+      "updateTournamentEventEntry"
+    );
+    if (!updated) {
+      throw new Error("Tournament event entry not found");
+    }
+
+    return this.getTournamentEventEntrySummary(resolvedTournamentId, resolvedEventId, updated.id);
+  }
+
   async listTournamentMatches(tournamentId: string) {
     const resolvedTournamentId = resolveId(tournamentId);
     await this.ensureTournamentInOrganization(resolvedTournamentId, "listTournamentMatches.tournament");
@@ -809,6 +886,15 @@ export class SupabaseRepository implements AppRepository {
     return event;
   }
 
+  private async getTournamentEventEntrySummary(tournamentId: string, eventId: string, entryId: string) {
+    const entry = (await this.listTournamentEventEntries(tournamentId, eventId)).find((item) => item.id === entryId);
+    if (!entry) {
+      throw new Error("Tournament event entry not found");
+    }
+
+    return entry;
+  }
+
   private async getClient() {
     if (!this.clientPromise) {
       this.clientPromise = Promise.resolve(this.clientProvider());
@@ -909,6 +995,40 @@ export class SupabaseRepository implements AppRepository {
 
     if (!weapon) {
       throw new Error("Weapon type not found in current organization");
+    }
+  }
+
+  private async ensurePlayerInOrganization(playerId: string, operation: string) {
+    const organizationId = await this.getOrganizationId();
+    const player = await this.querySingle<Pick<PlayerRow, "id">>(
+      (await this.getClient())
+        .from("players")
+        .select("id")
+        .eq("id", playerId)
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      operation
+    );
+
+    if (!player) {
+      throw new Error("Player not found in current organization");
+    }
+  }
+
+  private async ensureEventInCurrentTournament(tournamentId: string, eventId: string, operation: string) {
+    await this.ensureTournamentInOrganization(tournamentId, `${operation}.tournament`);
+    const event = await this.querySingle<Pick<TournamentEventRow, "id">>(
+      (await this.getClient())
+        .from("tournament_events")
+        .select("id")
+        .eq("id", eventId)
+        .eq("tournament_id", tournamentId)
+        .maybeSingle(),
+      operation
+    );
+
+    if (!event) {
+      throw new Error("Tournament event not found in current tournament");
     }
   }
 
@@ -1153,6 +1273,22 @@ function toMatchSummary(match: MatchRow, players: Map<string, PlayerRow>): Match
   };
 }
 
+function toTournamentEventEntrySummary(
+  entry: TournamentEventEntryRow,
+  players: Map<string, PlayerRow>
+) {
+  const player = players.get(entry.player_id);
+  return {
+    id: entry.id,
+    eventId: toPublicId(entry.event_id),
+    playerId: entry.player_id,
+    playerName: player?.name ?? entry.player_id,
+    playerClub: player?.club ?? "未知俱乐部",
+    seed: entry.seed ?? undefined,
+    status: entry.status
+  };
+}
+
 function validateMatchInput(input: CreateMatchInput) {
   if (!input.eventId) {
     throw new Error("eventId is required");
@@ -1307,6 +1443,30 @@ function normalizeTournamentEventUpdate(input: UpdateTournamentEventInput) {
   return updates;
 }
 
+function normalizeTournamentEventEntryInput(input: CreateTournamentEventEntryInput) {
+  return {
+    playerId: normalizeRequiredText(input.playerId, "playerId"),
+    seed: normalizeOptionalSeed(input.seed)
+  };
+}
+
+function normalizeTournamentEventEntryUpdate(input: UpdateTournamentEventEntryInput) {
+  const updates: Partial<Pick<TournamentEventEntryRow, "seed" | "status">> = {};
+
+  if (input.seed !== undefined) {
+    updates.seed = normalizeOptionalSeed(input.seed);
+  }
+  if (input.status !== undefined) {
+    updates.status = normalizeTournamentEventEntryStatus(input.status);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new Error("At least one tournament event entry field is required");
+  }
+
+  return updates;
+}
+
 function normalizeRequiredText(value: string, fieldName: string) {
   const normalized = value.trim();
   if (!normalized) {
@@ -1314,6 +1474,25 @@ function normalizeRequiredText(value: string, fieldName: string) {
   }
 
   return normalized;
+}
+
+function normalizeOptionalSeed(value: number | undefined) {
+  if (value === undefined) {
+    return null;
+  }
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error("seed must be a positive integer");
+  }
+
+  return value;
+}
+
+function normalizeTournamentEventEntryStatus(value: string) {
+  if (["registered", "withdrawn"].includes(value)) {
+    return value as TournamentEventEntryRow["status"];
+  }
+
+  throw new Error("entry status is invalid");
 }
 
 function normalizeTournamentFormat(value: string) {

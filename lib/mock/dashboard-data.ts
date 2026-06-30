@@ -3,6 +3,7 @@ import type {
   PlayerSummary,
   RankingRow,
   RankingSnapshotSummary,
+  TournamentEventEntrySummary,
   TournamentEventSummary,
   TournamentSummary,
   WeaponType
@@ -94,6 +95,27 @@ export const tournamentEvents: TournamentEventSummary[] = [
     format: "round_robin",
     status: "draft",
     matchCount: 6
+  }
+];
+
+export const tournamentEventEntries: TournamentEventEntrySummary[] = [
+  {
+    id: "entry-longsword-lin",
+    eventId: "event-longsword-open",
+    playerId: "player-001",
+    playerName: "林澈",
+    playerClub: "北境剑术会",
+    seed: 1,
+    status: "registered"
+  },
+  {
+    id: "entry-longsword-zhou",
+    eventId: "event-longsword-open",
+    playerId: "player-002",
+    playerName: "周衡",
+    playerClub: "铜环训练场",
+    seed: 2,
+    status: "registered"
   }
 ];
 

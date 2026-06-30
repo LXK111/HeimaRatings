@@ -10,6 +10,8 @@ import type {
   RankingEngineOutput,
   RankingRow,
   RankingSnapshotSummary,
+  TournamentEventEntryStatus,
+  TournamentEventEntrySummary,
   TournamentEventSummary,
   TournamentFormat,
   TournamentSummary,
@@ -106,6 +108,17 @@ export interface UpdateTournamentEventInput {
   status?: LifecycleStatus;
 }
 
+export interface CreateTournamentEventEntryInput {
+  playerId: string;
+  seed?: number;
+}
+
+export interface UpdateTournamentEventEntryInput {
+  id: string;
+  seed?: number;
+  status?: TournamentEventEntryStatus;
+}
+
 export interface AppRepository {
   listOrganizations(): Promise<Organization[]>;
   listUserOrganizationMemberships(userId: string): Promise<OrganizationMembership[]>;
@@ -122,6 +135,17 @@ export interface AppRepository {
   listTournamentEvents(tournamentId: string): Promise<TournamentEventSummary[]>;
   createTournamentEvent(tournamentId: string, input: CreateTournamentEventInput): Promise<TournamentEventSummary>;
   updateTournamentEvent(tournamentId: string, input: UpdateTournamentEventInput): Promise<TournamentEventSummary>;
+  listTournamentEventEntries(tournamentId: string, eventId: string): Promise<TournamentEventEntrySummary[]>;
+  createTournamentEventEntry(
+    tournamentId: string,
+    eventId: string,
+    input: CreateTournamentEventEntryInput
+  ): Promise<TournamentEventEntrySummary>;
+  updateTournamentEventEntry(
+    tournamentId: string,
+    eventId: string,
+    input: UpdateTournamentEventEntryInput
+  ): Promise<TournamentEventEntrySummary>;
   listTournamentMatches(tournamentId: string): Promise<MatchSummary[]>;
   createMatch(tournamentId: string, input: CreateMatchInput): Promise<MatchSummary>;
   getRankingSnapshot(snapshotId: string): Promise<RankingSnapshotPayload>;

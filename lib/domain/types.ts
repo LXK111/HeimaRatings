@@ -1,6 +1,7 @@
 export type RankingAlgorithm = "elo" | "sdr" | "glicko2" | "hybrid";
 export type TournamentFormat = "single_elimination" | "round_robin" | "swiss" | "custom";
 export type LifecycleStatus = "draft" | "active" | "completed";
+export type TournamentEventEntryStatus = "registered" | "withdrawn";
 export type PublicPageTheme = "dark" | "light" | "compact";
 
 export interface Organization {
@@ -210,6 +211,16 @@ export interface TournamentEventSummary {
   format: TournamentFormat;
   status: LifecycleStatus;
   matchCount: number;
+}
+
+export interface TournamentEventEntrySummary {
+  id: string;
+  eventId: string;
+  playerId: string;
+  playerName: string;
+  playerClub: string;
+  seed?: number;
+  status: TournamentEventEntryStatus;
 }
 
 export interface MatchSummary {

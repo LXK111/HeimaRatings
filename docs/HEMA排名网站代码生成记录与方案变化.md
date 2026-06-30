@@ -47,6 +47,7 @@
 | v4.1 | 2026-06-30 | Codex | 执行阶段 28，新增选手真实创建编辑闭环 |
 | v4.2 | 2026-06-30 | Codex | 执行阶段 29，新增赛事真实创建编辑闭环 |
 | v4.3 | 2026-06-30 | Codex | 执行阶段 30，新增比赛项目真实创建编辑闭环 |
+| v4.4 | 2026-06-30 | Codex | 执行阶段 31，新增项目参赛名单闭环 |
 
 ## 1. 文档目的
 
@@ -1130,3 +1131,38 @@ HeimaRatings/
 方案变化：
 
 - 管理端真实写入闭环从赛事容器扩展到比赛项目，为签表、淘汰晋级和项目级排名提供真实挂载点。
+
+### 阶段 31：项目参赛名单闭环
+
+方案细节：
+
+- 阶段 31 的目标是让每个比赛项目拥有真实参赛名单。
+- 参赛名单是签表生成的直接输入，因此先维护项目参赛关系，再生成对阵。
+- 新增 `tournament_event_entries` 表，记录项目、选手、种子序号和报名状态。
+- 数据库 trigger 保证项目和选手属于同一组织。
+- RLS 继续遵循组织成员可读、`admin/editor` 可写。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/database/migrations/20260630124841_event_entries.sql`。
+- 已新增 `HeimaRatings/database/validations/202606300006_verify_event_entries.sql`。
+- 已更新 `HeimaRatings/lib/domain/types.ts` 和 `HeimaRatings/lib/database/types.ts`，新增参赛名单类型。
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增参赛名单 Repository 契约。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，新增参赛名单读取、加入和更新路径。
+- 已更新 Mock 数据与 Mock Repository，补齐默认模式参赛名单。
+- 已新增 `HeimaRatings/app/api/tournaments/[id]/events/[eventId]/entries/route.ts`。
+- 已新增 `HeimaRatings/lib/server/tournament-event-entry-actions.ts`。
+- 已更新 `HeimaRatings/app/tournaments/[id]/events/page.tsx`，增加参赛名单展示和维护表单。
+- 已创建 `HeimaRatings/docs/stage-31.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- `npm run db:verify`：已由用户在真库应用阶段 31 migration 后执行完成。
+
+方案变化：
+
+- 签表输入从隐含的 demo 选手推进到真实的项目参赛名单模型；后续签表生成可以直接消费 `tournament_event_entries`。

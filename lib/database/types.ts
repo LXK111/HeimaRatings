@@ -2,6 +2,7 @@ import type {
   LifecycleStatus,
   PublicPageTheme,
   RankingAlgorithm,
+  TournamentEventEntryStatus,
   TournamentFormat
 } from "@/lib/domain/types";
 
@@ -82,6 +83,16 @@ export interface TournamentEventRow {
   updated_at: string;
 }
 
+export interface TournamentEventEntryRow {
+  id: string;
+  event_id: string;
+  player_id: string;
+  seed: number | null;
+  status: TournamentEventEntryStatus;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MatchRow {
   id: string;
   tournament_id: string;
@@ -156,6 +167,7 @@ export interface DatabaseTables {
   player_weapon_ratings: PlayerWeaponRatingRow;
   tournaments: TournamentRow;
   tournament_events: TournamentEventRow;
+  tournament_event_entries: TournamentEventEntryRow;
   matches: MatchRow;
   ranking_snapshots: RankingSnapshotRow;
   ranking_snapshot_items: RankingSnapshotItemRow;

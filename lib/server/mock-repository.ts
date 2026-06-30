@@ -4,6 +4,7 @@ import {
   players,
   rankingSnapshots,
   rankingsByWeapon,
+  tournamentEventEntries,
   tournamentEvents,
   tournaments,
   weaponTypes
@@ -32,6 +33,10 @@ export function getTournament(id: string) {
 export function listTournamentEvents(tournamentId: string) {
   const resolvedId = resolveDemoTournamentId(tournamentId);
   return tournamentEvents.filter((event) => event.tournamentId === resolvedId);
+}
+
+export function listTournamentEventEntries(eventId: string) {
+  return tournamentEventEntries.filter((entry) => entry.eventId === eventId);
 }
 
 export function listTournamentMatches(tournamentId: string) {

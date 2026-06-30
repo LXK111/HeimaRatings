@@ -2,6 +2,10 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  createTournamentEventEntryAction,
+  updateTournamentEventEntryAction
+} from "@/lib/server/tournament-event-entry-actions";
 import { createTournamentEventAction, updateTournamentEventAction } from "@/lib/server/tournament-event-actions";
 import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
@@ -15,10 +19,19 @@ interface TournamentEventsPageProps {
 export default async function TournamentEventsPage({ params }: TournamentEventsPageProps) {
   const { id } = await params;
   const repository = await getRequestRepository(await getServerRepositoryContext());
-  const [tournamentEvents, weaponTypes] = await Promise.all([
+  const [tournamentEvents, weaponTypes, players] = await Promise.all([
     repository.listTournamentEvents(id),
-    repository.listWeapons()
+    repository.listWeapons(),
+    repository.listPlayers()
   ]);
+  const entriesByEvent = Object.fromEntries(
+    await Promise.all(
+      tournamentEvents.map(async (event) => [
+        event.id,
+        await repository.listTournamentEventEntries(id, event.id)
+      ])
+    )
+  );
 
   return (
     <AppShell
@@ -52,9 +65,10 @@ export default async function TournamentEventsPage({ params }: TournamentEventsP
 
       <Panel eyebrow="Events" title="项目列表">
         <DataTable
-          columns={["项目", "武器", "赛制", "状态", "比赛数", "编辑"]}
+          columns={["项目", "武器", "赛制", "状态", "比赛数", "参赛名单", "编辑"]}
           rows={tournamentEvents.map((event) => {
             const weapon = weaponTypes.find((item) => item.id === event.weaponTypeId);
+            const entries = entriesByEvent[event.id] ?? [];
             return [
               <span className="font-black text-stone-50" key="name">{event.name}</span>,
               <StatusBadge key="weapon" label={weapon?.name ?? "未知武器"} tone="brass" />,
@@ -65,6 +79,10 @@ export default async function TournamentEventsPage({ params }: TournamentEventsP
                 tone={event.status === "active" ? "green" : "muted"}
               />,
               event.matchCount,
+              <div className="grid min-w-[520px] gap-4" key="entries">
+                <AddEntryForm entries={entries} eventId={event.id} players={players} tournamentId={id} />
+                <EntryList entries={entries} eventId={event.id} tournamentId={id} />
+              </div>,
               <form
                 action={updateTournamentEventAction}
                 className="grid min-w-[560px] grid-cols-[1.3fr_1fr_1fr_0.8fr_auto] items-end gap-3"
@@ -96,6 +114,127 @@ export default async function TournamentEventsPage({ params }: TournamentEventsP
         />
       </Panel>
     </AppShell>
+  );
+}
+
+function AddEntryForm({
+  entries,
+  eventId,
+  players,
+  tournamentId
+}: {
+  entries: Array<{ playerId: string }>;
+  eventId: string;
+  players: Array<{ id: string; name: string; club: string }>;
+  tournamentId: string;
+}) {
+  const enteredPlayerIds = new Set(entries.map((entry) => entry.playerId));
+  const availablePlayers = players.filter((player) => !enteredPlayerIds.has(player.id));
+  const hasAvailablePlayers = availablePlayers.length > 0;
+
+  return (
+    <form action={createTournamentEventEntryAction} className="grid grid-cols-[1fr_84px_auto] items-end gap-2">
+      <input name="tournamentId" type="hidden" value={tournamentId} />
+      <input name="eventId" type="hidden" value={eventId} />
+      <label className="grid gap-1 text-xs font-bold text-stone-400">
+        加入选手
+        <select
+          className="h-10 rounded-2xl border border-white/10 bg-iron-950 px-3 text-sm text-stone-50 outline-none transition focus:border-brass-400"
+          disabled={!hasAvailablePlayers}
+          name="playerId"
+          required
+        >
+          {availablePlayers.map((player) => (
+            <option key={player.id} value={player.id}>
+              {player.name} · {player.club}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1 text-xs font-bold text-stone-400">
+        种子
+        <input
+          className="h-10 rounded-2xl border border-white/10 bg-iron-950 px-3 text-sm text-stone-50 outline-none transition focus:border-brass-400"
+          min="1"
+          name="seed"
+          type="number"
+        />
+      </label>
+      <button
+        className="h-10 rounded-2xl border border-brass-400/40 px-4 text-xs font-black text-brass-300 transition hover:border-brass-300 hover:text-brass-100 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!hasAvailablePlayers}
+        type="submit"
+      >
+        加入
+      </button>
+    </form>
+  );
+}
+
+function EntryList({
+  entries,
+  eventId,
+  tournamentId
+}: {
+  entries: Array<{
+    id: string;
+    playerName: string;
+    playerClub: string;
+    seed?: number;
+    status: string;
+  }>;
+  eventId: string;
+  tournamentId: string;
+}) {
+  if (entries.length === 0) {
+    return <span className="text-xs font-bold text-stone-500">暂无参赛选手</span>;
+  }
+
+  return (
+    <div className="grid gap-2">
+      {entries.map((entry) => (
+        <form
+          action={updateTournamentEventEntryAction}
+          className="grid grid-cols-[1fr_72px_108px_auto] items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2"
+          key={entry.id}
+        >
+          <input name="tournamentId" type="hidden" value={tournamentId} />
+          <input name="eventId" type="hidden" value={eventId} />
+          <input name="id" type="hidden" value={entry.id} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-black text-stone-100">{entry.playerName}</div>
+            <div className="truncate text-xs font-bold text-stone-500">{entry.playerClub}</div>
+          </div>
+          <label className="grid gap-1 text-xs font-bold text-stone-400">
+            种子
+            <input
+              className="h-9 rounded-2xl border border-white/10 bg-iron-950 px-3 text-sm text-stone-50 outline-none transition focus:border-brass-400"
+              defaultValue={entry.seed}
+              min="1"
+              name="seed"
+              type="number"
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-bold text-stone-400">
+            状态
+            <select
+              className="h-9 rounded-2xl border border-white/10 bg-iron-950 px-3 text-sm text-stone-50 outline-none transition focus:border-brass-400"
+              defaultValue={entry.status}
+              name="status"
+            >
+              <option value="registered">参赛</option>
+              <option value="withdrawn">退赛</option>
+            </select>
+          </label>
+          <button
+            className="h-9 rounded-2xl border border-brass-400/40 px-3 text-xs font-black text-brass-300 transition hover:border-brass-300 hover:text-brass-100"
+            type="submit"
+          >
+            保存
+          </button>
+        </form>
+      ))}
+    </div>
   );
 }
 

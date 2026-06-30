@@ -5,6 +5,7 @@ import {
   getPublicRankingPage,
   getRankingSnapshot,
   getTournament,
+  listTournamentEventEntries,
   listPlayers,
   listTournamentEvents,
   listTournamentMatches,
@@ -17,11 +18,13 @@ import type {
   CreateMatchInput,
   CreatePlayerInput,
   CreateRankingSnapshotInput,
+  CreateTournamentEventEntryInput,
   CreateTournamentEventInput,
   CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
   UpdatePlayerInput,
+  UpdateTournamentEventEntryInput,
   UpdateTournamentEventInput,
   UpdateTournamentInput,
   UpdateWeaponInput
@@ -182,6 +185,48 @@ export class MockRepository implements AppRepository {
       name: input.name ?? existing.name,
       weaponTypeId: input.weaponTypeId ?? existing.weaponTypeId,
       format: input.format ?? existing.format,
+      status: input.status ?? existing.status
+    };
+  }
+
+  async listTournamentEventEntries(_tournamentId: string, eventId: string) {
+    return listTournamentEventEntries(eventId);
+  }
+
+  async createTournamentEventEntry(
+    _tournamentId: string,
+    eventId: string,
+    input: CreateTournamentEventEntryInput
+  ) {
+    const player = listPlayers().find((item) => item.id === input.playerId);
+    if (!player) {
+      throw new Error("Player not found");
+    }
+
+    return {
+      id: `entry-mock-${Date.now()}`,
+      eventId,
+      playerId: player.id,
+      playerName: player.name,
+      playerClub: player.club,
+      seed: input.seed,
+      status: "registered" as const
+    };
+  }
+
+  async updateTournamentEventEntry(
+    _tournamentId: string,
+    eventId: string,
+    input: UpdateTournamentEventEntryInput
+  ) {
+    const existing = listTournamentEventEntries(eventId).find((entry) => entry.id === input.id);
+    if (!existing) {
+      throw new Error("Tournament event entry not found");
+    }
+
+    return {
+      ...existing,
+      seed: input.seed ?? existing.seed,
       status: input.status ?? existing.status
     };
   }
