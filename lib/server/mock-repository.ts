@@ -1,4 +1,9 @@
-import type { PublicRankingPagePayload, RankingAlgorithm, RankingEngineInput } from "@/lib/domain/types";
+import type {
+  MatchSummary,
+  PublicRankingPagePayload,
+  RankingAlgorithm,
+  RankingEngineInput
+} from "@/lib/domain/types";
 import {
   matches,
   players,
@@ -93,6 +98,8 @@ export function createMatchDraft(tournamentId: string, body: unknown) {
   const score2 = Number(body.score2);
   const player1Name = String(body.player1Name ?? "");
   const player2Name = String(body.player2Name ?? "");
+  const player1 = players.find((player) => player.name === player1Name);
+  const player2 = players.find((player) => player.name === player2Name);
   const round = Number(body.round ?? 1);
   const eventId = String(body.eventId ?? tournamentEvents[0]?.id ?? "");
   const event = tournamentEvents.find((item) => item.id === eventId) ?? tournamentEvents[0];
@@ -117,18 +124,58 @@ export function createMatchDraft(tournamentId: string, body: unknown) {
     throw new Error("score1 and score2 must be non-negative");
   }
 
-  return {
+  const created = {
     id: `match-draft-${Date.now()}`,
     tournamentId: resolveDemoTournamentId(tournamentId),
     eventId: event.id,
     weaponTypeId: event.weaponTypeId,
     round,
+    player1Id: player1?.id,
     player1Name,
+    player2Id: player2?.id,
     player2Name,
     score1,
     score2,
-    winnerName: score1 >= score2 ? player1Name : player2Name
+    winnerId: score1 >= score2 ? player1?.id : player2?.id,
+    winnerName: score1 >= score2 ? player1Name : player2Name,
+    playedAt: new Date().toISOString()
   };
+  matches.push(created);
+
+  return created;
+}
+
+export function updateMatchResultDraft(
+  tournamentId: string,
+  input: { id: string; score1: number; score2: number; winnerId: string }
+) {
+  const matchIndex = matches.findIndex(
+    (match) => match.tournamentId === resolveDemoTournamentId(tournamentId) && match.id === input.id
+  );
+  if (matchIndex < 0) {
+    throw new Error("Match not found");
+  }
+
+  const match = matches[matchIndex];
+  if (![match.player1Id, match.player2Id].includes(input.winnerId)) {
+    throw new Error("winnerId must be one of match players");
+  }
+  const updated = {
+    ...match,
+    score1: input.score1,
+    score2: input.score2,
+    winnerId: input.winnerId,
+    winnerName: input.winnerId === match.player1Id ? match.player1Name : match.player2Name,
+    playedAt: new Date().toISOString()
+  };
+  matches[matchIndex] = updated;
+
+  return updated;
+}
+
+export function appendMatchDrafts(drafts: MatchSummary[]) {
+  matches.push(...drafts);
+  return drafts;
 }
 
 export function buildRankingEngineInput(

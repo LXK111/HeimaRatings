@@ -48,6 +48,31 @@ export async function POST(request: Request, context: RouteContext) {
   }
 }
 
+export async function PATCH(request: Request, context: RouteContext) {
+  const { id } = await context.params;
+
+  try {
+    const authError = await requireManagementApiUser();
+    if (authError) {
+      return authError;
+    }
+    const writeAccessError = await requireManagementApiWriteAccess(request);
+    if (writeAccessError) {
+      return writeAccessError;
+    }
+
+    const body = await request.json();
+    const repository = await getRequestRepository(await readAuthorizedRepositoryContextFromRequest(request));
+    return ok(await repository.updateMatchResult(id, body));
+  } catch (error) {
+    if (isServerConfigurationError(error)) {
+      return serverError(error);
+    }
+
+    return badRequest(error instanceof Error ? error.message : "Invalid match result payload");
+  }
+}
+
 function isServerConfigurationError(error: unknown) {
   return error instanceof Error && error.message.startsWith("Supabase data source is not configured");
 }

@@ -1,5 +1,6 @@
-import type { RankingRow } from "@/lib/domain/types";
+import type { MatchSummary, RankingRow } from "@/lib/domain/types";
 import {
+  appendMatchDrafts,
   buildRankingEngineInput,
   createMatchDraft,
   getPublicRankingPage,
@@ -10,7 +11,8 @@ import {
   listTournamentEvents,
   listTournamentMatches,
   listTournaments,
-  listWeapons
+  listWeapons,
+  updateMatchResultDraft
 } from "@/lib/server/mock-repository";
 import type {
   AppRepository,
@@ -23,6 +25,7 @@ import type {
   CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
+  UpdateMatchResultInput,
   UpdatePlayerInput,
   UpdateTournamentEventEntryInput,
   UpdateTournamentEventInput,
@@ -239,6 +242,16 @@ export class MockRepository implements AppRepository {
     return createMatchDraft(tournamentId, input);
   }
 
+  async updateMatchResult(tournamentId: string, input: UpdateMatchResultInput) {
+    const match = listTournamentMatches(tournamentId).find((item) => item.id === input.id);
+    if (!match) {
+      throw new Error("Match not found");
+    }
+    validateMatchResultInput(match, input);
+
+    return updateMatchResultDraft(tournamentId, input);
+  }
+
   async generateTournamentEventBracket(tournamentId: string, eventId: string) {
     const event = listTournamentEvents(tournamentId).find((item) => item.id === eventId);
     if (!event) {
@@ -264,18 +277,50 @@ export class MockRepository implements AppRepository {
       throw new Error("Bracket generation is only available for single elimination and round robin events");
     }
 
-    return pairs.map(([player1, player2], index) => ({
+    const drafts = pairs.map(([player1, player2], index) => ({
       id: `match-bracket-mock-${Date.now()}-${index + 1}`,
       tournamentId,
       eventId,
       weaponTypeId: event.weaponTypeId,
       round: 1,
+      player1Id: player1.playerId,
       player1Name: player1.playerName,
+      player2Id: player2.playerId,
       player2Name: player2.playerName,
       score1: 0,
       score2: 0,
       winnerName: "平局"
     }));
+    return appendMatchDrafts(drafts);
+  }
+
+  async advanceTournamentEventBracket(tournamentId: string, eventId: string) {
+    const event = listTournamentEvents(tournamentId).find((item) => item.id === eventId);
+    if (!event) {
+      throw new Error("Tournament event not found");
+    }
+    if (event.format !== "single_elimination") {
+      throw new Error("Bracket advancement is only available for single elimination events");
+    }
+
+    const eventMatches = listTournamentMatches(tournamentId).filter((match) => match.eventId === eventId);
+    if (eventMatches.length === 0) {
+      throw new Error("Tournament event has no matches");
+    }
+
+    const currentRound = Math.max(...eventMatches.map((match) => match.round));
+    const currentRoundMatches = eventMatches.filter((match) => match.round === currentRound);
+    const winners = currentRoundMatches.map(getCompletedMatchWinner);
+    if (winners.length !== currentRoundMatches.length) {
+      throw new Error("Current round must be completed before advancing");
+    }
+    if (winners.length < 2) {
+      throw new Error("Tournament event already has a champion");
+    }
+
+    return appendMatchDrafts(
+      buildNextRoundMatches(tournamentId, eventId, event.weaponTypeId, currentRound + 1, winners)
+    );
   }
 
   async getRankingSnapshot(snapshotId: string) {
@@ -339,4 +384,64 @@ function buildRoundRobinPairs(entries: MockBracketEntry[]) {
   }
 
   return pairs;
+}
+
+function validateMatchResultInput(match: MatchSummary, input: UpdateMatchResultInput) {
+  if (!Number.isFinite(input.score1) || !Number.isFinite(input.score2)) {
+    throw new Error("score1 and score2 must be numbers");
+  }
+  if (input.score1 < 0 || input.score2 < 0) {
+    throw new Error("score1 and score2 must be non-negative");
+  }
+  if (input.score1 === input.score2) {
+    throw new Error("Single elimination matches require a winner");
+  }
+  if (![match.player1Id, match.player2Id].includes(input.winnerId)) {
+    throw new Error("winnerId must be one of match players");
+  }
+}
+
+function getCompletedMatchWinner(match: MatchSummary) {
+  if (!match.winnerId || match.winnerName === "平局") {
+    return undefined;
+  }
+  if (match.score1 === match.score2) {
+    return undefined;
+  }
+
+  return {
+    id: match.winnerId,
+    name: match.winnerName
+  };
+}
+
+function buildNextRoundMatches(
+  tournamentId: string,
+  eventId: string,
+  weaponTypeId: string,
+  round: number,
+  winners: Array<{ id: string; name: string } | undefined>
+) {
+  const completedWinners = winners.filter((winner): winner is { id: string; name: string } => Boolean(winner));
+  const matches: MatchSummary[] = [];
+  for (let i = 0; i + 1 < completedWinners.length; i += 2) {
+    const player1 = completedWinners[i];
+    const player2 = completedWinners[i + 1];
+    matches.push({
+      id: `match-advance-mock-${Date.now()}-${i + 1}`,
+      tournamentId,
+      eventId,
+      weaponTypeId,
+      round,
+      player1Id: player1.id,
+      player1Name: player1.name,
+      player2Id: player2.id,
+      player2Name: player2.name,
+      score1: 0,
+      score2: 0,
+      winnerName: "平局"
+    });
+  }
+
+  return matches;
 }

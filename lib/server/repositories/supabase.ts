@@ -37,6 +37,7 @@ import type {
   CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
+  UpdateMatchResultInput,
   UpdatePlayerInput,
   UpdateTournamentEventEntryInput,
   UpdateTournamentEventInput,
@@ -625,6 +626,49 @@ export class SupabaseRepository implements AppRepository {
     ]));
   }
 
+  async updateMatchResult(tournamentId: string, input: UpdateMatchResultInput) {
+    validateMatchResultInput(input);
+    const resolvedTournamentId = resolveId(tournamentId);
+    await this.ensureTournamentInOrganization(resolvedTournamentId, "updateMatchResult.tournament");
+    const match = await this.querySingle<MatchRow>(
+      (await this.getClient())
+        .from("matches")
+        .select("*")
+        .eq("id", resolveId(input.id))
+        .eq("tournament_id", resolvedTournamentId)
+        .maybeSingle(),
+      "updateMatchResult.match"
+    );
+    if (!match) {
+      throw new Error("Match not found");
+    }
+    if (![match.player1_id, match.player2_id].includes(resolveId(input.winnerId))) {
+      throw new Error("winnerId must be one of match players");
+    }
+
+    const updated = await this.querySingle<MatchRow>(
+      (await this.getClient())
+        .from("matches")
+        .update({
+          score1: input.score1,
+          score2: input.score2,
+          winner_id: resolveId(input.winnerId),
+          played_at: new Date().toISOString()
+        })
+        .eq("id", match.id)
+        .eq("tournament_id", resolvedTournamentId)
+        .select("*")
+        .single(),
+      "updateMatchResult.update"
+    );
+    if (!updated) {
+      throw new Error("updateMatchResult.update failed: updated match was empty");
+    }
+    const players = await this.loadPlayersByIds(collectPlayerIds([updated]));
+
+    return toMatchSummary(updated, players);
+  }
+
   async generateTournamentEventBracket(tournamentId: string, eventId: string) {
     const resolvedTournamentId = resolveId(tournamentId);
     const resolvedEventId = resolveId(eventId);
@@ -697,6 +741,67 @@ export class SupabaseRepository implements AppRepository {
         )
         .select("*"),
       "generateBracket.insertMatches"
+    );
+    const players = await this.loadPlayersByIds(collectPlayerIds(inserted));
+
+    return inserted.map((match) => toMatchSummary(match, players));
+  }
+
+  async advanceTournamentEventBracket(tournamentId: string, eventId: string) {
+    const resolvedTournamentId = resolveId(tournamentId);
+    const resolvedEventId = resolveId(eventId);
+    await this.ensureEventInCurrentTournament(resolvedTournamentId, resolvedEventId, "advanceBracket.event");
+    const event = await this.querySingle<TournamentEventRow>(
+      (await this.getClient())
+        .from("tournament_events")
+        .select("*")
+        .eq("id", resolvedEventId)
+        .eq("tournament_id", resolvedTournamentId)
+        .maybeSingle(),
+      "advanceBracket.loadEvent"
+    );
+    if (!event) {
+      throw new Error("Tournament event not found");
+    }
+    if (event.format !== "single_elimination") {
+      throw new Error("Bracket advancement is only available for single elimination events");
+    }
+
+    const eventMatches = await this.query<MatchRow[]>(
+      (await this.getClient())
+        .from("matches")
+        .select("*")
+        .eq("tournament_id", resolvedTournamentId)
+        .eq("event_id", resolvedEventId)
+        .order("round", { ascending: true })
+        .order("created_at", { ascending: true }),
+      "advanceBracket.matches"
+    );
+    if (eventMatches.length === 0) {
+      throw new Error("Tournament event has no matches");
+    }
+
+    const currentRound = Math.max(...eventMatches.map((match) => match.round));
+    const currentRoundMatches = eventMatches.filter((match) => match.round === currentRound);
+    const nextRoundMatches = eventMatches.filter((match) => match.round === currentRound + 1);
+    if (nextRoundMatches.length > 0) {
+      throw new Error("Next round already exists");
+    }
+    if (currentRoundMatches.some((match) => !match.winner_id || match.score1 === match.score2)) {
+      throw new Error("Current round must be completed before advancing");
+    }
+    if (currentRoundMatches.length < 2) {
+      throw new Error("Tournament event already has a champion");
+    }
+
+    const inserted = await this.query<MatchRow[]>(
+      (await this.getClient())
+        .from("matches")
+        .insert(
+          buildNextRoundMatchRows(resolvedTournamentId, event, currentRound + 1, currentRoundMatches)
+        )
+        .select("*"),
+      "advanceBracket.insertMatches"
     );
     const players = await this.loadPlayersByIds(collectPlayerIds(inserted));
 
@@ -1343,11 +1448,15 @@ function toMatchSummary(match: MatchRow, players: Map<string, PlayerRow>): Match
     eventId: toPublicId(match.event_id),
     weaponTypeId: toPublicId(match.weapon_type_id),
     round: match.round,
+    player1Id: toPublicId(match.player1_id),
     player1Name: player1?.name ?? match.player1_id,
+    player2Id: toPublicId(match.player2_id),
     player2Name: player2?.name ?? match.player2_id,
     score1: match.score1,
     score2: match.score2,
-    winnerName: winner?.name ?? "平局"
+    winnerId: match.winner_id ? toPublicId(match.winner_id) : undefined,
+    winnerName: winner?.name ?? "平局",
+    playedAt: match.played_at ?? undefined
   };
 }
 
@@ -1385,6 +1494,24 @@ function validateMatchInput(input: CreateMatchInput) {
   }
   if (input.score1 < 0 || input.score2 < 0) {
     throw new Error("score1 and score2 must be non-negative");
+  }
+}
+
+function validateMatchResultInput(input: UpdateMatchResultInput) {
+  if (!input.id) {
+    throw new Error("match id is required");
+  }
+  if (!input.winnerId) {
+    throw new Error("winnerId is required");
+  }
+  if (!Number.isFinite(input.score1) || !Number.isFinite(input.score2)) {
+    throw new Error("score1 and score2 must be numbers");
+  }
+  if (input.score1 < 0 || input.score2 < 0) {
+    throw new Error("score1 and score2 must be non-negative");
+  }
+  if (input.score1 === input.score2) {
+    throw new Error("Single elimination matches require a winner");
   }
 }
 
@@ -1702,6 +1829,40 @@ function buildRoundRobinEntryPairs(entries: TournamentEventEntryRow[]) {
   }
 
   return pairs;
+}
+
+function buildNextRoundMatchRows(
+  tournamentId: string,
+  event: TournamentEventRow,
+  round: number,
+  currentRoundMatches: MatchRow[]
+) {
+  const winners = currentRoundMatches
+    .map((match) => match.winner_id)
+    .filter((winnerId): winnerId is string => Boolean(winnerId));
+
+  return winners
+    .slice(0, Math.floor(winners.length / 2) * 2)
+    .reduce<Array<Partial<MatchRow>>>((acc, _winnerId, index, normalizedWinners) => {
+      if (index % 2 !== 0) {
+        return acc;
+      }
+
+      acc.push({
+        tournament_id: tournamentId,
+        event_id: event.id,
+        weapon_type_id: event.weapon_type_id,
+        round,
+        player1_id: normalizedWinners[index],
+        player2_id: normalizedWinners[index + 1],
+        score1: 0,
+        score2: 0,
+        winner_id: null,
+        played_at: null
+      });
+
+      return acc;
+    }, []);
 }
 
 function collectPlayerIds(matches: MatchRow[]) {

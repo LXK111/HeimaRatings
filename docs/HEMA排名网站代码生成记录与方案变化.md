@@ -49,6 +49,7 @@
 | v4.3 | 2026-06-30 | Codex | 执行阶段 30，新增比赛项目真实创建编辑闭环 |
 | v4.4 | 2026-06-30 | Codex | 执行阶段 31，新增项目参赛名单闭环 |
 | v4.5 | 2026-06-30 | Codex | 执行阶段 32，新增签表生成最小闭环 |
+| v4.6 | 2026-06-30 | Codex | 执行阶段 33，新增淘汰晋级最小闭环 |
 
 ## 1. 文档目的
 
@@ -1199,3 +1200,35 @@ HeimaRatings/
 方案变化：
 
 - 签表从“只有参赛名单输入”推进到“可生成对阵草稿”，后续淘汰晋级可在 `matches` 基础上继续推进。
+
+### 阶段 33：淘汰晋级最小闭环
+
+方案细节：
+
+- 阶段 33 的目标是让单败淘汰项目从“生成首轮草稿”推进到“结果驱动下一轮”。
+- 本阶段继续复用 `matches`，不新增签表树表。
+- 比赛结果更新写入 `score1`、`score2`、`winner_id` 和 `played_at`。
+- 只有当前最新轮全部比赛都有非平局胜者时，才允许生成下一轮。
+- 当前轮只剩 1 名胜者时视为已有冠军，不再生成下一轮。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/domain/types.ts`，为 `MatchSummary` 补充选手 ID、胜者 ID 和完成时间。
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增比赛结果更新和单败晋级 Repository 契约。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，新增真实比赛结果更新和下一轮生成路径。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts` 和 `HeimaRatings/lib/server/mock-repository.ts`，补齐 Mock 模式进程内比赛结果和晋级闭环。
+- 已更新 `HeimaRatings/app/api/tournaments/[id]/matches/route.ts`，新增 `PATCH`。
+- 已新增 `HeimaRatings/app/api/tournaments/[id]/events/[eventId]/bracket/advance/route.ts`。
+- 已更新 `HeimaRatings/components/matches/match-workbench.tsx` 和 `HeimaRatings/components/matches/match-list-panel.tsx`，支持行内保存结果和生成下一轮。
+- 已创建 `HeimaRatings/docs/stage-33.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 签表从“生成初始对阵”推进到“比赛结果驱动晋级”，后续可以继续补项目级排名、轮空落位和签表可视化。

@@ -126,11 +126,15 @@ export const matches: MatchSummary[] = [
     eventId: "event-longsword-open",
     weaponTypeId: "weapon-longsword",
     round: 1,
+    player1Id: "player-001",
     player1Name: "林澈",
+    player2Id: "player-002",
     player2Name: "周衡",
     score1: 9,
     score2: 6,
-    winnerName: "林澈"
+    winnerId: "player-001",
+    winnerName: "林澈",
+    playedAt: "2026-06-01T10:00:00.000Z"
   },
   {
     id: "match-002",
@@ -138,11 +142,15 @@ export const matches: MatchSummary[] = [
     eventId: "event-longsword-open",
     weaponTypeId: "weapon-longsword",
     round: 2,
+    player1Id: "player-003",
     player1Name: "许岚",
+    player2Id: "player-001",
     player2Name: "林澈",
     score1: 7,
     score2: 9,
-    winnerName: "林澈"
+    winnerId: "player-001",
+    winnerName: "林澈",
+    playedAt: "2026-06-01T11:00:00.000Z"
   },
   {
     id: "match-003",
@@ -150,11 +158,15 @@ export const matches: MatchSummary[] = [
     eventId: "event-sabre-open",
     weaponTypeId: "weapon-sabre",
     round: 1,
+    player1Id: "player-003",
     player1Name: "许岚",
+    player2Id: "player-001",
     player2Name: "林澈",
     score1: 9,
     score2: 5,
-    winnerName: "许岚"
+    winnerId: "player-003",
+    winnerName: "许岚",
+    playedAt: "2026-06-01T12:00:00.000Z"
   }
 ];
 

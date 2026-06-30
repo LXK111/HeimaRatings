@@ -31,6 +31,13 @@ export interface CreateMatchInput {
   score2: number;
 }
 
+export interface UpdateMatchResultInput {
+  id: string;
+  score1: number;
+  score2: number;
+  winnerId: string;
+}
+
 export interface BuildRankingEngineInputOptions {
   algorithm?: RankingAlgorithm;
   weaponTypeId?: string;
@@ -148,7 +155,9 @@ export interface AppRepository {
   ): Promise<TournamentEventEntrySummary>;
   listTournamentMatches(tournamentId: string): Promise<MatchSummary[]>;
   createMatch(tournamentId: string, input: CreateMatchInput): Promise<MatchSummary>;
+  updateMatchResult(tournamentId: string, input: UpdateMatchResultInput): Promise<MatchSummary>;
   generateTournamentEventBracket(tournamentId: string, eventId: string): Promise<MatchSummary[]>;
+  advanceTournamentEventBracket(tournamentId: string, eventId: string): Promise<MatchSummary[]>;
   getRankingSnapshot(snapshotId: string): Promise<RankingSnapshotPayload>;
   buildRankingEngineInput(options: BuildRankingEngineInputOptions): Promise<RankingEngineInput>;
   createRankingSnapshot(

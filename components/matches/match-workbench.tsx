@@ -69,6 +69,8 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
   const [publishedSnapshot, setPublishedSnapshot] = useState<PublishRankingResponse["snapshot"]>();
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingMatchId, setIsUpdatingMatchId] = useState("");
+  const [isAdvancing, setIsAdvancing] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [message, setMessage] = useState("");
@@ -77,6 +79,9 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
   const selectedEvent = activeEvents.find((event) => event.id === eventId) ?? activeEvents[0];
   const selectedWeapon = weapons.find((weapon) => weapon.id === weaponTypeId) ?? enabledWeapons[0];
   const eventWeapon = weapons.find((weapon) => weapon.id === selectedEvent?.weaponTypeId);
+  const selectedEventMatches = selectedEvent
+    ? matches.filter((match) => match.eventId === selectedEvent.id)
+    : [];
   const selectablePlayers = useMemo(() => {
     const eventWeaponTypeId = selectedEvent?.weaponTypeId;
     return players.filter((player) =>
@@ -84,6 +89,7 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
     );
   }, [selectedEvent?.weaponTypeId]);
   const filteredMatches = matches.filter((match) => match.weaponTypeId === weaponTypeId);
+  const advanceDisabledReason = getAdvanceDisabledReason(selectedEvent, selectedEventMatches);
 
   useEffect(() => {
     async function loadMatches() {
@@ -151,6 +157,88 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
       setError(submitError instanceof Error ? submitError.message : "比赛提交失败");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function updateMatchResult(matchId: string, nextScore1: number, nextScore2: number, winnerId: string) {
+    setError("");
+    setMessage("");
+
+    if (!winnerId) {
+      setError("请选择胜者。");
+      return;
+    }
+    if (!Number.isFinite(nextScore1) || !Number.isFinite(nextScore2)) {
+      setError("比分必须是数字。");
+      return;
+    }
+    if (nextScore1 < 0 || nextScore2 < 0) {
+      setError("比分不能小于 0。");
+      return;
+    }
+    if (nextScore1 === nextScore2) {
+      setError("淘汰赛结果不能平局。");
+      return;
+    }
+
+    setIsUpdatingMatchId(matchId);
+    try {
+      const response = await fetch(`/api/tournaments/${tournamentId}/matches`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: matchId,
+          score1: nextScore1,
+          score2: nextScore2,
+          winnerId
+        })
+      });
+      const payload = (await response.json()) as ApiResponse<MatchSummary>;
+      if (!response.ok || "error" in payload) {
+        throw new Error("error" in payload ? payload.error.message : "比赛结果保存失败");
+      }
+
+      setMatches((current) => current.map((match) => (match.id === matchId ? payload.data : match)));
+      resetRankingResult();
+      setMessage("比赛结果已保存。");
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "比赛结果保存失败");
+    } finally {
+      setIsUpdatingMatchId("");
+    }
+  }
+
+  async function advanceBracket() {
+    setError("");
+    setMessage("");
+
+    if (!selectedEvent) {
+      setError("请选择比赛项目。");
+      return;
+    }
+    if (advanceDisabledReason) {
+      setError(advanceDisabledReason);
+      return;
+    }
+
+    setIsAdvancing(true);
+    try {
+      const response = await fetch(
+        `/api/tournaments/${tournamentId}/events/${selectedEvent.id}/bracket/advance`,
+        { method: "POST" }
+      );
+      const payload = (await response.json()) as ApiResponse<MatchSummary[]>;
+      if (!response.ok || "error" in payload) {
+        throw new Error("error" in payload ? payload.error.message : "下一轮生成失败");
+      }
+
+      setMatches((current) => [...current, ...payload.data]);
+      resetRankingResult();
+      setMessage(`已生成 ${payload.data.length} 场下一轮对阵。`);
+    } catch (advanceError) {
+      setError(advanceError instanceof Error ? advanceError.message : "下一轮生成失败");
+    } finally {
+      setIsAdvancing(false);
     }
   }
 
@@ -314,6 +402,12 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
     };
   }
 
+  function resetRankingResult() {
+    setRankingRows([]);
+    setGeneratedAt("");
+    setPublishedSnapshot(undefined);
+  }
+
   function toRankingRows(output: RankingEngineOutput): RankingRow[] {
     return output.rankings.map((row) => {
       const player = players.find((item) => item.id === row.playerId || item.name === row.name);
@@ -356,11 +450,16 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
         />
 
         <MatchListPanel
+          advanceDisabledReason={advanceDisabledReason}
           filteredMatchCount={filteredMatches.length}
           isLoadingMatches={isLoadingMatches}
+          isAdvancing={isAdvancing}
+          isUpdatingMatchId={isUpdatingMatchId}
           matches={matches}
           tournamentEvents={events}
           weaponTypes={weapons}
+          onAdvanceBracket={advanceBracket}
+          onUpdateResult={updateMatchResult}
         />
       </section>
 
@@ -386,4 +485,30 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
       />
     </div>
   );
+}
+
+function getAdvanceDisabledReason(
+  selectedEvent: TournamentEventSummary | undefined,
+  eventMatches: MatchSummary[]
+) {
+  if (!selectedEvent) {
+    return "请选择比赛项目";
+  }
+  if (selectedEvent.format !== "single_elimination") {
+    return "仅单败淘汰支持晋级";
+  }
+  if (eventMatches.length === 0) {
+    return "当前项目没有对阵";
+  }
+
+  const currentRound = Math.max(...eventMatches.map((match) => match.round));
+  const currentRoundMatches = eventMatches.filter((match) => match.round === currentRound);
+  if (currentRoundMatches.length < 2) {
+    return "当前项目已有冠军";
+  }
+  if (currentRoundMatches.some((match) => !match.winnerId || match.score1 === match.score2)) {
+    return "当前轮尚未全部完成";
+  }
+
+  return "";
 }

@@ -229,11 +229,15 @@ export interface MatchSummary {
   eventId: string;
   weaponTypeId: string;
   round: number;
+  player1Id?: string;
   player1Name: string;
+  player2Id?: string;
   player2Name: string;
   score1: number;
   score2: number;
+  winnerId?: string;
   winnerName: string;
+  playedAt?: string;
 }
 
 export interface RankingSnapshotSummary {
