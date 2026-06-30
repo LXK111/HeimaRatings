@@ -4,12 +4,14 @@ import type {
   OrganizationMembership,
   PlayerSummary,
   PublicRankingPagePayload,
+  LifecycleStatus,
   RankingAlgorithm,
   RankingEngineInput,
   RankingEngineOutput,
   RankingRow,
   RankingSnapshotSummary,
   TournamentEventSummary,
+  TournamentFormat,
   TournamentSummary,
   WeaponType
 } from "@/lib/domain/types";
@@ -70,6 +72,25 @@ export interface UpdatePlayerInput {
   club?: string;
 }
 
+export interface CreateTournamentInput {
+  name: string;
+  format: TournamentFormat;
+  status: LifecycleStatus;
+  defaultAlgorithm: RankingAlgorithm;
+  startedAt?: string;
+  endedAt?: string;
+}
+
+export interface UpdateTournamentInput {
+  id: string;
+  name?: string;
+  format?: TournamentFormat;
+  status?: LifecycleStatus;
+  defaultAlgorithm?: RankingAlgorithm;
+  startedAt?: string;
+  endedAt?: string;
+}
+
 export interface AppRepository {
   listOrganizations(): Promise<Organization[]>;
   listUserOrganizationMemberships(userId: string): Promise<OrganizationMembership[]>;
@@ -80,6 +101,8 @@ export interface AppRepository {
   createPlayer(input: CreatePlayerInput): Promise<PlayerSummary>;
   updatePlayer(input: UpdatePlayerInput): Promise<PlayerSummary>;
   listTournaments(): Promise<TournamentSummary[]>;
+  createTournament(input: CreateTournamentInput): Promise<TournamentSummary>;
+  updateTournament(input: UpdateTournamentInput): Promise<TournamentSummary>;
   getTournament(id: string): Promise<TournamentSummary | undefined>;
   listTournamentEvents(tournamentId: string): Promise<TournamentEventSummary[]>;
   listTournamentMatches(tournamentId: string): Promise<MatchSummary[]>;

@@ -193,10 +193,13 @@ export interface PlayerSummary {
 export interface TournamentSummary {
   id: string;
   name: string;
+  format: TournamentFormat;
   status: "draft" | "active" | "completed";
   eventCount: number;
   matchCount: number;
   defaultAlgorithm: RankingAlgorithm;
+  startedAt?: string;
+  endedAt?: string;
 }
 
 export interface TournamentEventSummary {

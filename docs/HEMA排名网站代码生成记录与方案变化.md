@@ -45,6 +45,7 @@
 | v3.9 | 2026-06-30 | Codex | 执行阶段 26，新增管理端 API Cookie 登录态验收脚本 |
 | v4.0 | 2026-06-30 | Codex | 执行阶段 27，新增武器类型真实创建编辑闭环 |
 | v4.1 | 2026-06-30 | Codex | 执行阶段 28，新增选手真实创建编辑闭环 |
+| v4.2 | 2026-06-30 | Codex | 执行阶段 29，新增赛事真实创建编辑闭环 |
 
 ## 1. 文档目的
 
@@ -1065,3 +1066,35 @@ HeimaRatings/
 方案变化：
 
 - 管理端基础资料真实写入闭环从武器类型扩展到选手，并补齐选手创建时的分武器积分初始化。
+
+### 阶段 29：赛事真实创建编辑闭环
+
+方案细节：
+
+- 阶段 29 的目标是把赛事管理从只读推进到真实创建和编辑。
+- 赛事是比赛项目、报名、签表和晋级的容器，因此先让赛事容器可维护，再进入比赛项目。
+- 写入路径统一通过 Repository，不在页面中直接依赖 Supabase client。
+- 管理 API 写接口继续复用阶段 22/24 的 `admin/editor` 写权限规则。
+- 页面表单使用 Server Actions 调用请求级 Repository，让 Supabase 模式继续走当前用户 JWT 和数据库 RLS。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/domain/types.ts`，为 `TournamentSummary` 补充赛制和起止时间。
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增赛事创建和编辑契约。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，新增 `tournaments` 创建和编辑持久化路径。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts` 和 `HeimaRatings/lib/mock/dashboard-data.ts`，补齐 Mock Repository 写入接口和赛制字段。
+- 已更新 `HeimaRatings/app/api/tournaments/route.ts`，新增 `POST` 和 `PATCH`。
+- 已新增 `HeimaRatings/lib/server/tournament-actions.ts`，为页面表单提供 Server Actions。
+- 已更新 `HeimaRatings/app/tournaments/page.tsx`，新增创建表单和行内编辑表单。
+- 已创建 `HeimaRatings/docs/stage-29.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 管理端真实写入闭环从基础人/武器资料扩展到赛事容器，为后续比赛项目、签表和淘汰晋级提供真实上游数据。

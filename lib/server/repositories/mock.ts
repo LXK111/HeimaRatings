@@ -17,9 +17,11 @@ import type {
   CreateMatchInput,
   CreatePlayerInput,
   CreateRankingSnapshotInput,
+  CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
   UpdatePlayerInput,
+  UpdateTournamentInput,
   UpdateWeaponInput
 } from "@/lib/server/repositories/types";
 
@@ -114,6 +116,37 @@ export class MockRepository implements AppRepository {
 
   async listTournaments() {
     return listTournaments();
+  }
+
+  async createTournament(input: CreateTournamentInput) {
+    return {
+      id: `tournament-mock-${Date.now()}`,
+      name: input.name,
+      format: input.format,
+      status: input.status,
+      eventCount: 0,
+      matchCount: 0,
+      defaultAlgorithm: input.defaultAlgorithm,
+      startedAt: input.startedAt,
+      endedAt: input.endedAt
+    };
+  }
+
+  async updateTournament(input: UpdateTournamentInput) {
+    const existing = listTournaments().find((tournament) => tournament.id === input.id);
+    if (!existing) {
+      throw new Error("Tournament not found");
+    }
+
+    return {
+      ...existing,
+      name: input.name ?? existing.name,
+      format: input.format ?? existing.format,
+      status: input.status ?? existing.status,
+      defaultAlgorithm: input.defaultAlgorithm ?? existing.defaultAlgorithm,
+      startedAt: input.startedAt ?? existing.startedAt,
+      endedAt: input.endedAt ?? existing.endedAt
+    };
   }
 
   async getTournament(id: string) {

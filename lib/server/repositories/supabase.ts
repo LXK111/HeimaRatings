@@ -31,9 +31,11 @@ import type {
   CreateMatchInput,
   CreatePlayerInput,
   CreateRankingSnapshotInput,
+  CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
   UpdatePlayerInput,
+  UpdateTournamentInput,
   UpdateWeaponInput
 } from "@/lib/server/repositories/types";
 import type { RepositoryContext } from "@/lib/server/repositories/context";
@@ -316,11 +318,60 @@ export class SupabaseRepository implements AppRepository {
     return tournaments.map((tournament) => ({
       id: toPublicId(tournament.id),
       name: tournament.name,
+      format: tournament.format,
       status: tournament.status,
       eventCount: events.filter((event) => event.tournament_id === tournament.id).length,
       matchCount: matches.filter((match) => match.tournament_id === tournament.id).length,
-      defaultAlgorithm: tournament.default_algorithm
+      defaultAlgorithm: tournament.default_algorithm,
+      startedAt: tournament.started_at ?? undefined,
+      endedAt: tournament.ended_at ?? undefined
     }));
+  }
+
+  async createTournament(input: CreateTournamentInput) {
+    const organizationId = await this.getOrganizationId();
+    const normalized = normalizeTournamentInput(input);
+    const inserted = await this.querySingle<TournamentRow>(
+      (await this.getClient())
+        .from("tournaments")
+        .insert({
+          organization_id: organizationId,
+          name: normalized.name,
+          format: normalized.format,
+          status: normalized.status,
+          default_algorithm: normalized.defaultAlgorithm,
+          started_at: normalized.startedAt,
+          ended_at: normalized.endedAt
+        })
+        .select("*")
+        .single(),
+      "createTournament"
+    );
+    if (!inserted) {
+      throw new Error("createTournament failed: inserted tournament was empty");
+    }
+
+    return this.getTournamentSummary(inserted.id);
+  }
+
+  async updateTournament(input: UpdateTournamentInput) {
+    const organizationId = await this.getOrganizationId();
+    const updates = normalizeTournamentUpdate(input);
+    const updated = await this.querySingle<TournamentRow>(
+      (await this.getClient())
+        .from("tournaments")
+        .update(updates)
+        .eq("id", resolveId(input.id))
+        .eq("organization_id", organizationId)
+        .select("*")
+        .single(),
+      "updateTournament"
+    );
+    if (!updated) {
+      throw new Error("Tournament not found");
+    }
+
+    return this.getTournamentSummary(updated.id);
   }
 
   async getTournament(id: string) {
@@ -683,6 +734,16 @@ export class SupabaseRepository implements AppRepository {
     }
 
     return player;
+  }
+
+  private async getTournamentSummary(tournamentId: string) {
+    const resolvedId = toPublicId(tournamentId);
+    const tournament = (await this.listTournaments()).find((item) => item.id === resolvedId);
+    if (!tournament) {
+      throw new Error("Tournament not found");
+    }
+
+    return tournament;
   }
 
   private async getClient() {
@@ -1109,6 +1170,48 @@ function normalizePlayerUpdate(input: UpdatePlayerInput) {
   return updates;
 }
 
+function normalizeTournamentInput(input: CreateTournamentInput) {
+  return {
+    name: normalizeRequiredText(input.name, "name"),
+    format: normalizeTournamentFormat(input.format),
+    status: normalizeLifecycleStatus(input.status),
+    defaultAlgorithm: normalizeRankingAlgorithm(input.defaultAlgorithm),
+    startedAt: normalizeOptionalDateTime(input.startedAt),
+    endedAt: normalizeOptionalDateTime(input.endedAt)
+  };
+}
+
+function normalizeTournamentUpdate(input: UpdateTournamentInput) {
+  const updates: Partial<
+    Pick<TournamentRow, "name" | "format" | "status" | "default_algorithm" | "started_at" | "ended_at">
+  > = {};
+
+  if (input.name !== undefined) {
+    updates.name = normalizeRequiredText(input.name, "name");
+  }
+  if (input.format !== undefined) {
+    updates.format = normalizeTournamentFormat(input.format);
+  }
+  if (input.status !== undefined) {
+    updates.status = normalizeLifecycleStatus(input.status);
+  }
+  if (input.defaultAlgorithm !== undefined) {
+    updates.default_algorithm = normalizeRankingAlgorithm(input.defaultAlgorithm);
+  }
+  if (input.startedAt !== undefined) {
+    updates.started_at = normalizeOptionalDateTime(input.startedAt);
+  }
+  if (input.endedAt !== undefined) {
+    updates.ended_at = normalizeOptionalDateTime(input.endedAt);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new Error("At least one tournament field is required");
+  }
+
+  return updates;
+}
+
 function normalizeRequiredText(value: string, fieldName: string) {
   const normalized = value.trim();
   if (!normalized) {
@@ -1118,9 +1221,46 @@ function normalizeRequiredText(value: string, fieldName: string) {
   return normalized;
 }
 
+function normalizeTournamentFormat(value: string) {
+  if (["single_elimination", "round_robin", "swiss", "custom"].includes(value)) {
+    return value as TournamentRow["format"];
+  }
+
+  throw new Error("format is invalid");
+}
+
+function normalizeLifecycleStatus(value: string) {
+  if (["draft", "active", "completed"].includes(value)) {
+    return value as TournamentRow["status"];
+  }
+
+  throw new Error("status is invalid");
+}
+
+function normalizeRankingAlgorithm(value: string) {
+  if (["elo", "sdr", "glicko2", "hybrid"].includes(value)) {
+    return value as TournamentRow["default_algorithm"];
+  }
+
+  throw new Error("defaultAlgorithm is invalid");
+}
+
 function normalizeOptionalText(value: string | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
+}
+
+function normalizeOptionalDateTime(value: string | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+  const timestamp = Date.parse(normalized);
+  if (Number.isNaN(timestamp)) {
+    throw new Error("datetime is invalid");
+  }
+
+  return new Date(timestamp).toISOString();
 }
 
 function normalizeInitialRating(value: number | undefined) {

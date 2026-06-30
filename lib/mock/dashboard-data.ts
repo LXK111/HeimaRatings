@@ -49,14 +49,17 @@ export const tournaments: TournamentSummary[] = [
   {
     id: "tournament-001",
     name: "HEMA 春季积分赛",
+    format: "single_elimination",
     status: "active",
     eventCount: 3,
     matchCount: 42,
-    defaultAlgorithm: "hybrid"
+    defaultAlgorithm: "hybrid",
+    startedAt: "2026-06-01T09:00:00.000Z"
   },
   {
     id: "tournament-002",
     name: "城市俱乐部邀请赛",
+    format: "round_robin",
     status: "draft",
     eventCount: 2,
     matchCount: 0,
