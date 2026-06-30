@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { RankingResultTable } from "@/components/matches/ranking-result-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -54,6 +55,7 @@ export function EventRankingWorkbench({
   tournamentId,
   weapons
 }: EventRankingWorkbenchProps) {
+  const router = useRouter();
   const [eventId, setEventId] = useState(events[0]?.id ?? "");
   const [algorithm, setAlgorithm] = useState<RankingAlgorithm>("hybrid");
   const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
@@ -133,6 +135,9 @@ export function EventRankingWorkbench({
       setGeneratedAt(result.generatedAt);
       setSnapshot(persistSnapshot ? (payload.data as PersistRankingResponse).snapshot : undefined);
       setMessage(persistSnapshot ? "项目级排名快照已保存。" : "项目级排名已重新计算。");
+      if (persistSnapshot) {
+        router.refresh();
+      }
     } catch (rankingError) {
       setError(rankingError instanceof Error ? rankingError.message : "项目排名计算失败");
     } finally {

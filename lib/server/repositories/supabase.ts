@@ -37,6 +37,7 @@ import type {
   CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
+  TournamentEventRankingSnapshot,
   UpdateMatchResultInput,
   UpdatePlayerInput,
   UpdateTournamentEventEntryInput,
@@ -853,6 +854,49 @@ export class SupabaseRepository implements AppRepository {
         };
       })
     };
+  }
+
+  async listTournamentEventRankingSnapshots(tournamentId: string): Promise<TournamentEventRankingSnapshot[]> {
+    const resolvedTournamentId = resolveId(tournamentId);
+    await this.ensureTournamentInOrganization(
+      resolvedTournamentId,
+      "listTournamentEventRankingSnapshots.tournament"
+    );
+    const snapshots = await this.query<RankingSnapshotRow[]>(
+      (await this.getClient())
+        .from("ranking_snapshots")
+        .select("*")
+        .eq("tournament_id", resolvedTournamentId)
+        .not("event_id", "is", null)
+        .order("generated_at", { ascending: false }),
+      "listTournamentEventRankingSnapshots.snapshots"
+    );
+    const latestSnapshots = collectLatestEventSnapshots(snapshots);
+    if (latestSnapshots.length === 0) {
+      return [];
+    }
+
+    const events = await this.query<TournamentEventRow[]>(
+      (await this.getClient())
+        .from("tournament_events")
+        .select("*")
+        .in("id", latestSnapshots.map((snapshot) => snapshot.event_id).filter(Boolean) as string[]),
+      "listTournamentEventRankingSnapshots.events"
+    );
+    const eventsById = new Map(events.map((event) => [event.id, event]));
+    const payloads = await Promise.all(
+      latestSnapshots.map((snapshot) => this.getRankingSnapshot(snapshot.id))
+    );
+
+    return payloads.map((payload, index) => {
+      const snapshot = latestSnapshots[index];
+      const event = snapshot.event_id ? eventsById.get(snapshot.event_id) : undefined;
+      return {
+        ...payload,
+        eventId: snapshot.event_id ? toPublicId(snapshot.event_id) : "",
+        eventName: event?.name ?? "未知项目"
+      };
+    });
   }
 
   async buildRankingEngineInput(options: BuildRankingEngineInputOptions) {
@@ -1863,6 +1907,18 @@ function buildNextRoundMatchRows(
 
       return acc;
     }, []);
+}
+
+function collectLatestEventSnapshots(snapshots: RankingSnapshotRow[]) {
+  const latestByEvent = new Map<string, RankingSnapshotRow>();
+  for (const snapshot of snapshots) {
+    if (!snapshot.event_id || latestByEvent.has(snapshot.event_id)) {
+      continue;
+    }
+    latestByEvent.set(snapshot.event_id, snapshot);
+  }
+
+  return [...latestByEvent.values()];
 }
 
 function collectPlayerIds(matches: MatchRow[]) {

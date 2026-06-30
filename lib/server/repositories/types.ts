@@ -22,6 +22,11 @@ export interface RankingSnapshotPayload extends RankingSnapshotSummary {
   items: RankingRow[];
 }
 
+export interface TournamentEventRankingSnapshot extends RankingSnapshotPayload {
+  eventId: string;
+  eventName: string;
+}
+
 export interface CreateMatchInput {
   eventId: string;
   round: number;
@@ -159,6 +164,7 @@ export interface AppRepository {
   generateTournamentEventBracket(tournamentId: string, eventId: string): Promise<MatchSummary[]>;
   advanceTournamentEventBracket(tournamentId: string, eventId: string): Promise<MatchSummary[]>;
   getRankingSnapshot(snapshotId: string): Promise<RankingSnapshotPayload>;
+  listTournamentEventRankingSnapshots(tournamentId: string): Promise<TournamentEventRankingSnapshot[]>;
   buildRankingEngineInput(options: BuildRankingEngineInputOptions): Promise<RankingEngineInput>;
   createRankingSnapshot(
     input: CreateRankingSnapshotInput,

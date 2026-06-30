@@ -51,6 +51,7 @@
 | v4.5 | 2026-06-30 | Codex | 执行阶段 32，新增签表生成最小闭环 |
 | v4.6 | 2026-06-30 | Codex | 执行阶段 33，新增淘汰晋级最小闭环 |
 | v4.7 | 2026-06-30 | Codex | 执行阶段 34，新增项目级排名闭环 |
+| v4.8 | 2026-06-30 | Codex | 执行阶段 35，新增项目级排名快照展示入口 |
 
 ## 1. 文档目的
 
@@ -1262,3 +1263,33 @@ HeimaRatings/
 方案变化：
 
 - 排名链路从“按赛事/武器计算”推进到“按比赛项目计算并保存快照”，形成参赛名单、签表、比赛结果、晋级和项目榜的管理端闭环。
+
+### 阶段 35：项目级排名快照展示入口
+
+方案细节：
+
+- 阶段 35 的目标是让已保存的项目级排名快照在管理端可查看。
+- Repository 新增当前赛事项目级快照查询能力。
+- Supabase 模式读取 `ranking_snapshots.event_id is not null`，按项目取最新快照。
+- 排名页展示最近项目榜，包含项目、武器、算法、生成时间、快照 ID 和排名明细。
+- 项目级榜单仍不进入公开页，公开展示留到后续阶段。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增项目级快照查询契约。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，新增项目级最新快照查询实现。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，补齐默认模式项目快照展示数据。
+- 已更新 `HeimaRatings/components/rankings/event-ranking-workbench.tsx`，保存项目级快照后刷新页面。
+- 已更新 `HeimaRatings/app/tournaments/[id]/rankings/page.tsx`，展示最近项目级排名快照。
+- 已创建 `HeimaRatings/docs/stage-35.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 项目级排名从“可保存快照”推进到“保存后可回看”，为后续公开页项目榜和快照历史列表提供入口。

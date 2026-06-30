@@ -25,6 +25,7 @@ import type {
   CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
+  TournamentEventRankingSnapshot,
   UpdateMatchResultInput,
   UpdatePlayerInput,
   UpdateTournamentEventEntryInput,
@@ -327,6 +328,27 @@ export class MockRepository implements AppRepository {
     return getRankingSnapshot(snapshotId);
   }
 
+  async listTournamentEventRankingSnapshots(tournamentId: string): Promise<TournamentEventRankingSnapshot[]> {
+    const events = listTournamentEvents(tournamentId);
+    return events
+      .filter((event) => event.matchCount > 0)
+      .map((event) => {
+        const rows = buildMockEventRankingRows(event.weaponTypeId);
+        const leader = rows[0];
+        return {
+          id: `snapshot-${event.id}-latest`,
+          eventId: event.id,
+          eventName: event.name,
+          weaponTypeId: event.weaponTypeId,
+          algorithm: "hybrid" as const,
+          generatedAt: new Date().toISOString(),
+          leaderName: leader?.name ?? "暂无排名",
+          leaderRating: leader?.rating ?? 0,
+          items: rows
+        };
+      });
+  }
+
   async buildRankingEngineInput(options: BuildRankingEngineInputOptions) {
     return buildRankingEngineInput(
       options.algorithm,
@@ -389,6 +411,29 @@ function buildRoundRobinPairs(entries: MockBracketEntry[]) {
   }
 
   return pairs;
+}
+
+function buildMockEventRankingRows(weaponTypeId: string): RankingRow[] {
+  return listPlayers()
+    .map((player) => {
+      const rating = player.weaponRatings.find((item) => item.weaponTypeId === weaponTypeId);
+      if (!rating) {
+        return null;
+      }
+
+      return {
+        playerId: player.id,
+        name: player.name,
+        club: player.club,
+        rank: rating.rank,
+        rating: rating.rating,
+        matches: 0,
+        wins: 0,
+        losses: 0
+      };
+    })
+    .filter((row): row is RankingRow => Boolean(row))
+    .sort((a, b) => a.rank - b.rank);
 }
 
 function validateMatchResultInput(match: MatchSummary, input: UpdateMatchResultInput) {
