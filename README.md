@@ -29,6 +29,7 @@
 | v2.3 | 2026-06-30 | Codex | 更新阶段 22 成员组织授权收敛状态 |
 | v2.4 | 2026-06-30 | Codex | 更新阶段 23 用户 JWT Repository 与 RLS 接管状态 |
 | v2.5 | 2026-06-30 | Codex | 更新阶段 24 数据库写权限 RLS 收紧状态 |
+| v2.6 | 2026-06-30 | Codex | 更新阶段 25 Supabase Auth/RLS 端到端验收脚本状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -56,7 +57,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 24：数据库写权限 RLS 收紧。
+当前已推进到阶段 25：Supabase Auth/RLS 端到端验收脚本。
 
 已完成阶段：
 
@@ -85,6 +86,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 22：管理端组织上下文按 `organization_members` 授权，组织切换只展示成员组织，写入接口要求 `admin` 或 `editor`。
 - 阶段 23：管理端页面和管理 API 在 Supabase 登录保护开启时使用用户会话 client 访问数据库，让 RLS 参与服务端读写路径。
 - 阶段 24：数据库 RLS 写权限从“组织成员可写”收紧为“组织 admin/editor 可写”，并补充真库验证 SQL。
+- 阶段 25：新增 `npm run auth:verify`，用真实 Supabase Auth viewer/editor 账号验证用户 JWT 下的 RLS 读写行为。
 
 当前阶段边界：
 
@@ -108,6 +110,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - Supabase 模式默认启用管理端登录保护；可用 `HEIMA_RATINGS_AUTH_REQUIRED=false` 临时关闭。公开榜单和嵌入页继续匿名访问。
 - Supabase 模式下 `viewer` 可读管理数据；比赛写入和排名快照持久化要求当前组织角色为 `admin` 或 `editor`。
 - service role Repository 仍保留给公开榜单、嵌入页、公开 API 和内部成员授权查询使用。
+- 可通过 `npm run auth:verify` 使用 viewer/editor 测试账号验证 Supabase Auth JWT 和数据库 RLS 行为。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
@@ -115,7 +118,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
 - 后续增强：为选手、武器、赛事和项目增加真实创建/编辑表单。
 - 后续增强：完善赛事编排、签表、淘汰晋级和项目级排名。
-- 后续增强：执行阶段 24 migration 后做真库登录会话下的 RLS 端到端验收。
+- 后续增强：把 Auth/RLS 验收从直接 Data API 扩展到浏览器 cookie 登录态下的管理端 API。
 
 ## 遗留 TODO
 
@@ -150,6 +153,17 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
+Auth/RLS 端到端验收需要额外准备两个测试账号：
+
+```bash
+HEIMA_RATINGS_RLS_VIEWER_EMAIL=...
+HEIMA_RATINGS_RLS_VIEWER_PASSWORD=...
+HEIMA_RATINGS_RLS_EDITOR_EMAIL=...
+HEIMA_RATINGS_RLS_EDITOR_PASSWORD=...
+HEIMA_RATINGS_RLS_ORGANIZATION_SLUG=hema-ratings-demo
+HEIMA_RATINGS_RLS_PUBLIC_PAGE_ID=demo
+```
+
 当前阶段 `supabase` 模式已实现基础读取、比赛写入、排名快照保存、公开页发布、应用层组织隔离、最小管理端登录保护、成员组织授权和管理端用户 JWT Repository；没有真实 Supabase 配置时请保持默认 Mock 模式。
 
 ## 编译运行指令
@@ -169,6 +183,9 @@ npm run check
 
 # 本地 smoke check（需要先启动 npm run dev 或 npm run start）
 npm run smoke
+
+# Supabase Auth/RLS 端到端验收（需要真库和 viewer/editor 测试账号）
+npm run auth:verify
 
 # 真库数据库约束验收（需要 psql 和 DATABASE_URL）
 npm run db:verify

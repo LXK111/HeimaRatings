@@ -41,6 +41,7 @@
 | v3.5 | 2026-06-30 | Codex | 执行阶段 22，收敛成员组织授权和管理写权限 |
 | v3.6 | 2026-06-30 | Codex | 执行阶段 23，管理端 Repository 切换用户 JWT client |
 | v3.7 | 2026-06-30 | Codex | 执行阶段 24，收紧数据库写权限 RLS 到 admin/editor |
+| v3.8 | 2026-06-30 | Codex | 执行阶段 25，新增 Supabase Auth/RLS 端到端验收脚本 |
 
 ## 1. 文档目的
 
@@ -939,3 +940,33 @@ HeimaRatings/
 方案变化：
 
 - 权限边界从“应用层阻止 viewer 写入”推进到“应用层 + 数据库 RLS 双层阻止 viewer 写入”。
+
+### 阶段 25：Supabase Auth/RLS 端到端验收脚本
+
+方案细节：
+
+- 阶段 25 的目标是把阶段 23/24 的 Supabase Auth JWT 和数据库 RLS 行为固化为可重复脚本。
+- 脚本使用 viewer/editor 两个真实 Supabase Auth 测试账号登录。
+- 脚本直接通过用户 JWT 调用 Supabase Data API，验证 RLS 行为。
+- 匿名路径只验证已启用公开页可读。
+- viewer 路径验证可读不可写。
+- editor 路径验证临时 `weapon_types` 行的 insert/update/delete 生命周期。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_supabase_auth_rls_e2e.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run auth:verify`。
+- 已创建 `HeimaRatings/docs/stage-25.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、环境变量和运行命令。
+
+验证记录：
+
+- `npm run auth:verify` 缺测试账号配置路径：通过，缺少测试账号环境变量时会明确报错。
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- 完整真库 `npm run auth:verify`：已由用户配置 viewer/editor 测试账号后执行完成。
+
+方案变化：
+
+- 真库权限验收从纯 SQL validation 扩展到真实 Supabase Auth 用户 JWT 验收。
