@@ -31,10 +31,12 @@ import type {
   CreateMatchInput,
   CreatePlayerInput,
   CreateRankingSnapshotInput,
+  CreateTournamentEventInput,
   CreateTournamentInput,
   CreateWeaponInput,
   RankingSnapshotPayload,
   UpdatePlayerInput,
+  UpdateTournamentEventInput,
   UpdateTournamentInput,
   UpdateWeaponInput
 } from "@/lib/server/repositories/types";
@@ -407,6 +409,57 @@ export class SupabaseRepository implements AppRepository {
     }));
   }
 
+  async createTournamentEvent(tournamentId: string, input: CreateTournamentEventInput) {
+    const resolvedTournamentId = resolveId(tournamentId);
+    await this.ensureTournamentInOrganization(resolvedTournamentId, "createTournamentEvent.tournament");
+    const normalized = normalizeTournamentEventInput(input);
+    const weaponTypeId = resolveId(normalized.weaponTypeId);
+    await this.ensureWeaponInOrganization(weaponTypeId, "createTournamentEvent.weapon");
+    const inserted = await this.querySingle<TournamentEventRow>(
+      (await this.getClient())
+        .from("tournament_events")
+        .insert({
+          tournament_id: resolvedTournamentId,
+          weapon_type_id: weaponTypeId,
+          name: normalized.name,
+          format: normalized.format,
+          status: normalized.status
+        })
+        .select("*")
+        .single(),
+      "createTournamentEvent"
+    );
+    if (!inserted) {
+      throw new Error("createTournamentEvent failed: inserted tournament event was empty");
+    }
+
+    return this.getTournamentEventSummary(resolvedTournamentId, inserted.id);
+  }
+
+  async updateTournamentEvent(tournamentId: string, input: UpdateTournamentEventInput) {
+    const resolvedTournamentId = resolveId(tournamentId);
+    await this.ensureTournamentInOrganization(resolvedTournamentId, "updateTournamentEvent.tournament");
+    const updates = normalizeTournamentEventUpdate(input);
+    if (updates.weapon_type_id) {
+      await this.ensureWeaponInOrganization(updates.weapon_type_id, "updateTournamentEvent.weapon");
+    }
+    const updated = await this.querySingle<TournamentEventRow>(
+      (await this.getClient())
+        .from("tournament_events")
+        .update(updates)
+        .eq("id", resolveId(input.id))
+        .eq("tournament_id", resolvedTournamentId)
+        .select("*")
+        .single(),
+      "updateTournamentEvent"
+    );
+    if (!updated) {
+      throw new Error("Tournament event not found");
+    }
+
+    return this.getTournamentEventSummary(resolvedTournamentId, updated.id);
+  }
+
   async listTournamentMatches(tournamentId: string) {
     const resolvedTournamentId = resolveId(tournamentId);
     await this.ensureTournamentInOrganization(resolvedTournamentId, "listTournamentMatches.tournament");
@@ -744,6 +797,16 @@ export class SupabaseRepository implements AppRepository {
     }
 
     return tournament;
+  }
+
+  private async getTournamentEventSummary(tournamentId: string, eventId: string) {
+    const resolvedEventId = toPublicId(eventId);
+    const event = (await this.listTournamentEvents(tournamentId)).find((item) => item.id === resolvedEventId);
+    if (!event) {
+      throw new Error("Tournament event not found");
+    }
+
+    return event;
   }
 
   private async getClient() {
@@ -1207,6 +1270,38 @@ function normalizeTournamentUpdate(input: UpdateTournamentInput) {
 
   if (Object.keys(updates).length === 0) {
     throw new Error("At least one tournament field is required");
+  }
+
+  return updates;
+}
+
+function normalizeTournamentEventInput(input: CreateTournamentEventInput) {
+  return {
+    name: normalizeRequiredText(input.name, "name"),
+    weaponTypeId: normalizeRequiredText(input.weaponTypeId, "weaponTypeId"),
+    format: normalizeTournamentFormat(input.format),
+    status: normalizeLifecycleStatus(input.status)
+  };
+}
+
+function normalizeTournamentEventUpdate(input: UpdateTournamentEventInput) {
+  const updates: Partial<Pick<TournamentEventRow, "name" | "weapon_type_id" | "format" | "status">> = {};
+
+  if (input.name !== undefined) {
+    updates.name = normalizeRequiredText(input.name, "name");
+  }
+  if (input.weaponTypeId !== undefined) {
+    updates.weapon_type_id = resolveId(normalizeRequiredText(input.weaponTypeId, "weaponTypeId"));
+  }
+  if (input.format !== undefined) {
+    updates.format = normalizeTournamentFormat(input.format);
+  }
+  if (input.status !== undefined) {
+    updates.status = normalizeLifecycleStatus(input.status);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new Error("At least one tournament event field is required");
   }
 
   return updates;

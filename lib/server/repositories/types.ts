@@ -91,6 +91,21 @@ export interface UpdateTournamentInput {
   endedAt?: string;
 }
 
+export interface CreateTournamentEventInput {
+  name: string;
+  weaponTypeId: string;
+  format: TournamentFormat;
+  status: LifecycleStatus;
+}
+
+export interface UpdateTournamentEventInput {
+  id: string;
+  name?: string;
+  weaponTypeId?: string;
+  format?: TournamentFormat;
+  status?: LifecycleStatus;
+}
+
 export interface AppRepository {
   listOrganizations(): Promise<Organization[]>;
   listUserOrganizationMemberships(userId: string): Promise<OrganizationMembership[]>;
@@ -105,6 +120,8 @@ export interface AppRepository {
   updateTournament(input: UpdateTournamentInput): Promise<TournamentSummary>;
   getTournament(id: string): Promise<TournamentSummary | undefined>;
   listTournamentEvents(tournamentId: string): Promise<TournamentEventSummary[]>;
+  createTournamentEvent(tournamentId: string, input: CreateTournamentEventInput): Promise<TournamentEventSummary>;
+  updateTournamentEvent(tournamentId: string, input: UpdateTournamentEventInput): Promise<TournamentEventSummary>;
   listTournamentMatches(tournamentId: string): Promise<MatchSummary[]>;
   createMatch(tournamentId: string, input: CreateMatchInput): Promise<MatchSummary>;
   getRankingSnapshot(snapshotId: string): Promise<RankingSnapshotPayload>;
