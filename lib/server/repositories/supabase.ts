@@ -30,7 +30,9 @@ import type {
   BuildRankingEngineInputOptions,
   CreateMatchInput,
   CreateRankingSnapshotInput,
-  RankingSnapshotPayload
+  CreateWeaponInput,
+  RankingSnapshotPayload,
+  UpdateWeaponInput
 } from "@/lib/server/repositories/types";
 import type { RepositoryContext } from "@/lib/server/repositories/context";
 
@@ -133,6 +135,50 @@ export class SupabaseRepository implements AppRepository {
     );
 
     return data.map(toWeaponType);
+  }
+
+  async createWeapon(input: CreateWeaponInput) {
+    const normalized = normalizeWeaponInput(input);
+    const organizationId = await this.getOrganizationId();
+    const inserted = await this.querySingle<WeaponTypeRow>(
+      (await this.getClient())
+        .from("weapon_types")
+        .insert({
+          organization_id: organizationId,
+          name: normalized.name,
+          slug: normalized.slug,
+          enabled: normalized.enabled,
+          sort_order: normalized.sortOrder
+        })
+        .select("*")
+        .single(),
+      "createWeapon"
+    );
+    if (!inserted) {
+      throw new Error("createWeapon failed: inserted weapon was empty");
+    }
+
+    return toWeaponType(inserted);
+  }
+
+  async updateWeapon(input: UpdateWeaponInput) {
+    const organizationId = await this.getOrganizationId();
+    const updates = normalizeWeaponUpdate(input);
+    const updated = await this.querySingle<WeaponTypeRow>(
+      (await this.getClient())
+        .from("weapon_types")
+        .update(updates)
+        .eq("id", resolveId(input.id))
+        .eq("organization_id", organizationId)
+        .select("*")
+        .single(),
+      "updateWeapon"
+    );
+    if (!updated) {
+      throw new Error("Weapon type not found");
+    }
+
+    return toWeaponType(updated);
   }
 
   async listPlayers() {
@@ -921,6 +967,67 @@ function validateMatchInput(input: CreateMatchInput) {
   if (input.score1 < 0 || input.score2 < 0) {
     throw new Error("score1 and score2 must be non-negative");
   }
+}
+
+function normalizeWeaponInput(input: CreateWeaponInput) {
+  const name = normalizeRequiredText(input.name, "name");
+  const slug = normalizeWeaponSlug(input.slug);
+  return {
+    name,
+    slug,
+    enabled: input.enabled,
+    sortOrder: normalizeSortOrder(input.sortOrder)
+  };
+}
+
+function normalizeWeaponUpdate(input: UpdateWeaponInput) {
+  const updates: Partial<Pick<WeaponTypeRow, "name" | "slug" | "enabled" | "sort_order">> = {};
+
+  if (input.name !== undefined) {
+    updates.name = normalizeRequiredText(input.name, "name");
+  }
+  if (input.slug !== undefined) {
+    updates.slug = normalizeWeaponSlug(input.slug);
+  }
+  if (input.enabled !== undefined) {
+    updates.enabled = input.enabled;
+  }
+  if (input.sortOrder !== undefined) {
+    updates.sort_order = normalizeSortOrder(input.sortOrder);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new Error("At least one weapon field is required");
+  }
+
+  return updates;
+}
+
+function normalizeRequiredText(value: string, fieldName: string) {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error(`${fieldName} is required`);
+  }
+
+  return normalized;
+}
+
+function normalizeWeaponSlug(value: string) {
+  const slug = normalizeRequiredText(value, "slug").toLowerCase();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    throw new Error("slug must contain lowercase letters, numbers, and hyphens only");
+  }
+
+  return slug;
+}
+
+function normalizeSortOrder(value: number | undefined) {
+  const sortOrder = value ?? 999;
+  if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+    throw new Error("sortOrder must be a non-negative integer");
+  }
+
+  return sortOrder;
 }
 
 function buildRanksByWeapon(ratings: PlayerWeaponRatingRow[]) {

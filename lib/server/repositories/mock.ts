@@ -16,7 +16,9 @@ import type {
   BuildRankingEngineInputOptions,
   CreateMatchInput,
   CreateRankingSnapshotInput,
-  RankingSnapshotPayload
+  CreateWeaponInput,
+  RankingSnapshotPayload,
+  UpdateWeaponInput
 } from "@/lib/server/repositories/types";
 
 export class MockRepository implements AppRepository {
@@ -45,6 +47,35 @@ export class MockRepository implements AppRepository {
 
   async listWeapons() {
     return listWeapons();
+  }
+
+  async createWeapon(input: CreateWeaponInput) {
+    return {
+      id: `weapon-mock-${Date.now()}`,
+      organizationId: "00000000-0000-0000-0000-000000000001",
+      name: input.name,
+      slug: input.slug,
+      enabled: input.enabled,
+      sortOrder: input.sortOrder ?? 999,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  async updateWeapon(input: UpdateWeaponInput) {
+    const existing = listWeapons().find((weapon) => weapon.id === input.id);
+    if (!existing) {
+      throw new Error("Weapon type not found");
+    }
+
+    return {
+      ...existing,
+      name: input.name ?? existing.name,
+      slug: input.slug ?? existing.slug,
+      enabled: input.enabled ?? existing.enabled,
+      sortOrder: input.sortOrder ?? existing.sortOrder,
+      updatedAt: new Date().toISOString()
+    };
   }
 
   async listPlayers() {

@@ -43,10 +43,27 @@ export interface CreateRankingSnapshotInput {
   publishPageId?: string;
 }
 
+export interface CreateWeaponInput {
+  name: string;
+  slug: string;
+  enabled: boolean;
+  sortOrder?: number;
+}
+
+export interface UpdateWeaponInput {
+  id: string;
+  name?: string;
+  slug?: string;
+  enabled?: boolean;
+  sortOrder?: number;
+}
+
 export interface AppRepository {
   listOrganizations(): Promise<Organization[]>;
   listUserOrganizationMemberships(userId: string): Promise<OrganizationMembership[]>;
   listWeapons(): Promise<WeaponType[]>;
+  createWeapon(input: CreateWeaponInput): Promise<WeaponType>;
+  updateWeapon(input: UpdateWeaponInput): Promise<WeaponType>;
   listPlayers(): Promise<PlayerSummary[]>;
   listTournaments(): Promise<TournamentSummary[]>;
   getTournament(id: string): Promise<TournamentSummary | undefined>;

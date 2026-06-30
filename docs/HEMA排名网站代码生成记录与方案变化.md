@@ -43,6 +43,7 @@
 | v3.7 | 2026-06-30 | Codex | 执行阶段 24，收紧数据库写权限 RLS 到 admin/editor |
 | v3.8 | 2026-06-30 | Codex | 执行阶段 25，新增 Supabase Auth/RLS 端到端验收脚本 |
 | v3.9 | 2026-06-30 | Codex | 执行阶段 26，新增管理端 API Cookie 登录态验收脚本 |
+| v4.0 | 2026-06-30 | Codex | 执行阶段 27，新增武器类型真实创建编辑闭环 |
 
 ## 1. 文档目的
 
@@ -651,7 +652,9 @@ HeimaRatings/
 
 验证记录：
 
+- `git diff --check`：通过，无空白格式问题。
 - `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
 
 方案变化：
 
@@ -1001,3 +1004,32 @@ HeimaRatings/
 方案变化：
 
 - Auth/RLS 验收从直接 Data API 扩展到 Next 管理 API 的 SSR cookie 登录态路径。
+
+### 阶段 27：武器类型真实创建编辑闭环
+
+方案细节：
+
+- 阶段 27 的目标是把第一个管理端基础资料页从只读推进到真实写入闭环。
+- 本阶段选择武器类型作为最小闭环对象，因为它是选手积分池、赛事项目和公开榜单的上游基础数据。
+- 写入路径统一通过 Repository，不在页面中直接依赖 Supabase client。
+- 管理 API 写接口继续复用阶段 22/24 的 `admin/editor` 写权限规则。
+- 页面表单使用 Server Actions 调用请求级 Repository，让 Supabase 模式继续走当前用户 JWT 和数据库 RLS。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增武器类型创建和编辑契约。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，新增 `weapon_types` 创建和编辑持久化路径。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，补齐 Mock Repository 写入接口。
+- 已更新 `HeimaRatings/app/api/weapons/route.ts`，新增 `POST` 和 `PATCH`。
+- 已新增 `HeimaRatings/lib/server/weapon-actions.ts`，为页面表单提供 Server Actions。
+- 已更新 `HeimaRatings/app/weapons/page.tsx`，新增创建表单和行内编辑表单。
+- 已创建 `HeimaRatings/docs/stage-27.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `npm run check`：通过，TypeScript 无错误。
+
+方案变化：
+
+- 管理端基础资料从“Repository 只读展示”推进到“页面表单 + 管理 API + Repository + RLS”的真实写入闭环。
