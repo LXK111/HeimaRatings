@@ -15,7 +15,7 @@ interface PublicRankingPageProps {
 export default async function PublicRankingPage({ params, searchParams }: PublicRankingPageProps) {
   const { pageId } = await params;
   const query = await searchParams;
-  const repository = getRepository(await getServerRepositoryContext());
+  const repository = getRepository(await getServerRepositoryContext({ authorize: false }));
   const page = await repository.getPublicRankingPage(pageId);
 
   if (!page || !page.enabled) {

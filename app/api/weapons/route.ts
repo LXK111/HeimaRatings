@@ -1,6 +1,6 @@
 import { ok, withServerError } from "@/lib/server/api-response";
 import { requireManagementApiUser } from "@/lib/server/auth-guard";
-import { readRepositoryContextFromRequest } from "@/lib/server/repositories/context";
+import { readAuthorizedRepositoryContextFromRequest } from "@/lib/server/organization-access";
 import { getRepository } from "@/lib/server/repositories/factory";
 
 export async function GET(request: Request) {
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       return authError;
     }
 
-    const repository = getRepository(readRepositoryContextFromRequest(request));
+    const repository = getRepository(await readAuthorizedRepositoryContextFromRequest(request));
     return ok(await repository.listWeapons());
   });
 }

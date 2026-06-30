@@ -13,8 +13,10 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { signOut } from "@/lib/server/auth-actions";
 import { requireManagementUser } from "@/lib/server/auth-guard";
+import { getAuthorizedOrganizationState } from "@/lib/server/organization-access";
 import { getRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
+import { getCurrentAuthUser, isManagementAuthRequired } from "@/lib/server/supabase/auth";
 
 const navigationItems = [
   { href: "/", label: "控制台", icon: Home },
@@ -43,18 +45,31 @@ export async function AppShell({
 }: AppShellProps) {
   const authUser = showOrganizationSwitcher ? await requireManagementUser() : undefined;
   const repositoryContext = await getServerRepositoryContext();
+  const organizationState =
+    showOrganizationSwitcher && authUser
+      ? await getAuthorizedOrganizationState(repositoryContext, authUser)
+      : undefined;
   const organizationSlug =
+    organizationState?.activeMembership?.organizationSlug ??
     repositoryContext.organizationSlug ??
     process.env.HEIMA_RATINGS_ORGANIZATION_SLUG ??
     "hema-ratings-demo";
   const organizationSource =
-    repositoryContext.organizationId || repositoryContext.organizationSlug
+    organizationState?.activeMembership
+      ? "成员授权"
+      : repositoryContext.organizationId || repositoryContext.organizationSlug
       ? "请求上下文"
       : process.env.HEIMA_RATINGS_ORGANIZATION_SLUG
         ? "环境变量"
         : "默认组织";
   const organizations = showOrganizationSwitcher
-    ? await getRepository(repositoryContext).listOrganizations()
+    ? organizationState
+      ? organizationState.memberships.map((membership) => ({
+          id: membership.organizationId,
+          name: `${membership.organizationName} · ${membership.role}`,
+          slug: membership.organizationSlug
+        }))
+      : await getRepository(repositoryContext).listOrganizations()
     : [];
 
   return (
@@ -140,9 +155,23 @@ export async function AppShell({
 async function switchOrganization(formData: FormData) {
   "use server";
 
-  const organizationSlug = String(formData.get("organizationSlug") ?? "").trim();
+  let organizationSlug = String(formData.get("organizationSlug") ?? "").trim();
   if (!organizationSlug) {
     return;
+  }
+
+  if (isManagementAuthRequired()) {
+    const user = await getCurrentAuthUser();
+    if (!user) {
+      return;
+    }
+
+    const state = await getAuthorizedOrganizationState({ organizationSlug }, user).catch(() => undefined);
+    if (!state?.activeMembership) {
+      return;
+    }
+
+    organizationSlug = state.activeMembership.organizationSlug;
   }
 
   const cookieStore = await cookies();

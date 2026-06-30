@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
-import { unauthorized } from "@/lib/server/api-response";
+import { forbidden, unauthorized } from "@/lib/server/api-response";
+import { canWriteOrganization, getActiveOrganizationMembership } from "@/lib/server/organization-access";
+import { readRepositoryContextFromRequest } from "@/lib/server/repositories/context";
 import {
   getCurrentAuthUser,
   isManagementAuthRequired,
@@ -35,6 +37,31 @@ export async function requireManagementApiUser() {
   const user = await getCurrentAuthUser();
   if (!user) {
     return unauthorized();
+  }
+
+  return undefined;
+}
+
+export async function requireManagementApiWriteAccess(request: Request) {
+  if (!isManagementAuthRequired()) {
+    return undefined;
+  }
+
+  if (!isSupabaseAuthConfigured()) {
+    return unauthorized("Supabase Auth is not configured");
+  }
+
+  const user = await getCurrentAuthUser();
+  if (!user) {
+    return unauthorized();
+  }
+
+  const membership = await getActiveOrganizationMembership(
+    readRepositoryContextFromRequest(request),
+    user
+  );
+  if (!canWriteOrganization(membership?.role)) {
+    return forbidden("Organization editor or admin role required");
   }
 
   return undefined;

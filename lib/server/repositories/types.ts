@@ -1,6 +1,7 @@
 import type {
   MatchSummary,
   Organization,
+  OrganizationMembership,
   PlayerSummary,
   PublicRankingPagePayload,
   RankingAlgorithm,
@@ -44,6 +45,7 @@ export interface CreateRankingSnapshotInput {
 
 export interface AppRepository {
   listOrganizations(): Promise<Organization[]>;
+  listUserOrganizationMemberships(userId: string): Promise<OrganizationMembership[]>;
   listWeapons(): Promise<WeaponType[]>;
   listPlayers(): Promise<PlayerSummary[]>;
   listTournaments(): Promise<TournamentSummary[]>;

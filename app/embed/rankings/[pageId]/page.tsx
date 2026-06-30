@@ -11,7 +11,7 @@ interface EmbedRankingPageProps {
 export default async function EmbedRankingPage({ params, searchParams }: EmbedRankingPageProps) {
   const { pageId } = await params;
   const query = await searchParams;
-  const repository = getRepository(await getServerRepositoryContext());
+  const repository = getRepository(await getServerRepositoryContext({ authorize: false }));
   const page = await repository.getPublicRankingPage(pageId);
 
   if (!page || !page.enabled) {

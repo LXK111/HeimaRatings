@@ -11,6 +11,15 @@ export interface Organization {
   updatedAt: string;
 }
 
+export type OrganizationRole = "admin" | "editor" | "viewer";
+
+export interface OrganizationMembership {
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  role: OrganizationRole;
+}
+
 export interface WeaponType {
   id: string;
   organizationId?: string;

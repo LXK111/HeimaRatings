@@ -20,6 +20,10 @@ export function unauthorized(message = "Authentication required") {
   return NextResponse.json({ error: { message } }, { status: 401 });
 }
 
+export function forbidden(message = "Forbidden") {
+  return NextResponse.json({ error: { message } }, { status: 403 });
+}
+
 export function serverError(error: unknown) {
   const message = error instanceof Error ? error.message : "Internal server error";
   return NextResponse.json({ error: { message } }, { status: 500 });

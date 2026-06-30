@@ -38,6 +38,7 @@
 | v3.2 | 2026-06-29 | Codex | 执行阶段 19，接入请求级组织上下文 |
 | v3.3 | 2026-06-29 | Codex | 执行阶段 20，新增组织切换与上下文可视化 |
 | v3.4 | 2026-06-29 | Codex | 执行阶段 21，新增最小 Supabase Auth 登录保护 |
+| v3.5 | 2026-06-30 | Codex | 执行阶段 22，收敛成员组织授权和管理写权限 |
 
 ## 1. 文档目的
 
@@ -837,3 +838,38 @@ HeimaRatings/
 
 - 管理端从“可切换组织”推进到“最小登录保护”。
 - 组织成员授权、用户 JWT Repository 和完整注册/邀请流程仍留到后续阶段。
+
+### 阶段 22：成员组织授权收敛
+
+方案细节：
+
+- 阶段 22 的目标是把“当前用户能访问哪个组织”绑定到 `organization_members`。
+- cookie/header 只表达期望组织，不再作为最终授权依据。
+- 管理端组织切换列表只展示当前用户所属组织。
+- 管理读接口使用授权后的组织上下文。
+- 管理写接口要求当前组织角色为 `admin` 或 `editor`。
+- Mock 模式继续保持免登录、免成员限制。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/lib/server/organization-access.ts`。
+- 已扩展 `HeimaRatings/lib/domain/types.ts`，新增组织角色和成员类型。
+- 已扩展 `HeimaRatings/lib/server/repositories/types.ts`，新增 `listUserOrganizationMemberships(userId)`。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，从 `organization_members` 读取用户成员组织。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，补齐 demo 成员关系。
+- 已更新 `HeimaRatings/lib/server/request-context.ts`，Server Page 组织上下文自动做成员授权。
+- 已更新 `HeimaRatings/lib/server/auth-guard.ts`，新增管理写权限校验。
+- 已更新 `HeimaRatings/components/layout/app-shell.tsx`，组织切换绑定成员组织。
+- 已更新管理 API，读路径使用授权组织上下文，写路径要求 `admin` 或 `editor`。
+- 已创建 `HeimaRatings/docs/stage-22.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 管理端从“已登录即可访问任意请求组织”推进到“登录用户只能访问成员组织”。
+- 服务端 Repository 仍使用 service role，用户 JWT Repository 和 RLS 强制执行留到后续阶段。

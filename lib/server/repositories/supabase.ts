@@ -12,6 +12,7 @@ import type {
 import type {
   MatchRow,
   OrganizationRow,
+  OrganizationMemberRow,
   PlayerRow,
   PlayerWeaponRatingRow,
   PublicPageRow,
@@ -75,6 +76,41 @@ export class SupabaseRepository implements AppRepository {
       createdAt: organization.created_at,
       updatedAt: organization.updated_at
     }));
+  }
+
+  async listUserOrganizationMemberships(userId: string) {
+    const memberships = await this.query<OrganizationMemberRow[]>(
+      this.client
+        .from("organization_members")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true }),
+      "listUserOrganizationMemberships.memberships"
+    );
+    const organizationIds = memberships.map((membership) => membership.organization_id);
+    const organizations = await this.query<OrganizationRow[]>(
+      organizationIds.length > 0
+        ? this.client.from("organizations").select("*").in("id", organizationIds)
+        : emptyResult<OrganizationRow[]>(),
+      "listUserOrganizationMemberships.organizations"
+    );
+    const organizationsById = new Map(organizations.map((organization) => [organization.id, organization]));
+
+    return memberships.flatMap((membership) => {
+      const organization = organizationsById.get(membership.organization_id);
+      if (!organization) {
+        return [];
+      }
+
+      return [
+        {
+          organizationId: organization.id,
+          organizationName: organization.name,
+          organizationSlug: organization.slug,
+          role: membership.role
+        }
+      ];
+    });
   }
 
   async listWeapons() {

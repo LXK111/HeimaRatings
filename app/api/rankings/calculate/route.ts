@@ -2,8 +2,11 @@ import { createHash } from "node:crypto";
 import type { RankingAlgorithm, RankingEngineInput } from "@/lib/domain/types";
 import { runRankingEngine } from "@/lib/ranking-engine/adapter";
 import { badRequest, ok, serverError } from "@/lib/server/api-response";
-import { requireManagementApiUser } from "@/lib/server/auth-guard";
-import { readRepositoryContextFromRequest } from "@/lib/server/repositories/context";
+import {
+  requireManagementApiUser,
+  requireManagementApiWriteAccess
+} from "@/lib/server/auth-guard";
+import { readAuthorizedRepositoryContextFromRequest } from "@/lib/server/organization-access";
 import { getRepository } from "@/lib/server/repositories/factory";
 
 const algorithms = new Set<RankingAlgorithm>(["elo", "sdr", "glicko2", "hybrid"]);
@@ -22,7 +25,14 @@ export async function POST(request: Request) {
     const eventId = typeof body?.eventId === "string" ? body.eventId : undefined;
     const persistSnapshot = body?.persistSnapshot === true;
     const publishPageId = typeof body?.publishPageId === "string" ? body.publishPageId : undefined;
-    const repository = getRepository(readRepositoryContextFromRequest(request));
+    if (persistSnapshot) {
+      const writeAccessError = await requireManagementApiWriteAccess(request);
+      if (writeAccessError) {
+        return writeAccessError;
+      }
+    }
+
+    const repository = getRepository(await readAuthorizedRepositoryContextFromRequest(request));
     const input = !persistSnapshot && isRankingEngineInput(body)
       ? { ...body, algorithm }
       : await repository.buildRankingEngineInput({ algorithm, weaponTypeId, tournamentId, eventId });

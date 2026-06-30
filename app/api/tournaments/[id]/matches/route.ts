@@ -1,6 +1,9 @@
 import { badRequest, created, ok, serverError, withServerError } from "@/lib/server/api-response";
-import { requireManagementApiUser } from "@/lib/server/auth-guard";
-import { readRepositoryContextFromRequest } from "@/lib/server/repositories/context";
+import {
+  requireManagementApiUser,
+  requireManagementApiWriteAccess
+} from "@/lib/server/auth-guard";
+import { readAuthorizedRepositoryContextFromRequest } from "@/lib/server/organization-access";
 import { getRepository } from "@/lib/server/repositories/factory";
 
 interface RouteContext {
@@ -15,7 +18,7 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     const { id } = await context.params;
-    const repository = getRepository(readRepositoryContextFromRequest(request));
+    const repository = getRepository(await readAuthorizedRepositoryContextFromRequest(request));
     return ok(await repository.listTournamentMatches(id));
   });
 }
@@ -28,9 +31,13 @@ export async function POST(request: Request, context: RouteContext) {
     if (authError) {
       return authError;
     }
+    const writeAccessError = await requireManagementApiWriteAccess(request);
+    if (writeAccessError) {
+      return writeAccessError;
+    }
 
     const body = await request.json();
-    const repository = getRepository(readRepositoryContextFromRequest(request));
+    const repository = getRepository(await readAuthorizedRepositoryContextFromRequest(request));
     return created(await repository.createMatch(id, body));
   } catch (error) {
     if (isServerConfigurationError(error)) {
