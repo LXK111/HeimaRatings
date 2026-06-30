@@ -10,6 +10,7 @@
     "check": "tsc --noEmit",
     "smoke": "node scripts/smoke_check.mjs",
     "auth:verify": "node scripts/verify_supabase_auth_rls_e2e.mjs",
+    "auth:api:verify": "node scripts/verify_management_auth_api_e2e.mjs",
     "db:verify": "node scripts/verify_database_constraints.mjs",
     "verify": "node scripts/verify_local.mjs"
   },

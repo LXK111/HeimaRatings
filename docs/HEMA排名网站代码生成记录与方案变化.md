@@ -42,6 +42,7 @@
 | v3.6 | 2026-06-30 | Codex | 执行阶段 23，管理端 Repository 切换用户 JWT client |
 | v3.7 | 2026-06-30 | Codex | 执行阶段 24，收紧数据库写权限 RLS 到 admin/editor |
 | v3.8 | 2026-06-30 | Codex | 执行阶段 25，新增 Supabase Auth/RLS 端到端验收脚本 |
+| v3.9 | 2026-06-30 | Codex | 执行阶段 26，新增管理端 API Cookie 登录态验收脚本 |
 
 ## 1. 文档目的
 
@@ -970,3 +971,33 @@ HeimaRatings/
 方案变化：
 
 - 真库权限验收从纯 SQL validation 扩展到真实 Supabase Auth 用户 JWT 验收。
+
+### 阶段 26：管理端 API Cookie 登录态验收脚本
+
+方案细节：
+
+- 阶段 26 的目标是验证真实产品路径里的 Supabase SSR cookie 登录态。
+- 脚本用 `@supabase/ssr` 在内存中生成 auth cookies。
+- 脚本带 cookie 调用本地 Next.js 管理 API。
+- 匿名管理 API 应返回 401。
+- viewer 可读取管理 API，但写接口应返回 403。
+- editor 可读取管理 API，并可调用持久化排名快照写接口。
+- 公开榜单 API 继续匿名可访问。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_management_auth_api_e2e.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run auth:api:verify`。
+- 已创建 `HeimaRatings/docs/stage-26.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、运行命令和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_API_VERIFY_BASE_URL=http://localhost:3001 npm run auth:api:verify`：通过，已验证匿名公开 API、匿名管理 API 401、viewer 读/写权限和 editor 读/写权限。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- Auth/RLS 验收从直接 Data API 扩展到 Next 管理 API 的 SSR cookie 登录态路径。
