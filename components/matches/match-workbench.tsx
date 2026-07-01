@@ -117,7 +117,7 @@ export function MatchWorkbench({
     );
   }, [selectedEvent?.weaponTypeId]);
   const filteredMatches = matches.filter((match) => match.weaponTypeId === weaponTypeId);
-  const advanceDisabledReason = getAdvanceDisabledReason(selectedEvent, selectedEventMatches);
+  const advanceDisabledReason = getAdvanceDisabledReason(selectedEvent, selectedEventMatches, entries);
 
   useEffect(() => {
     async function loadMatches() {
@@ -561,7 +561,8 @@ export function MatchWorkbench({
 
 function getAdvanceDisabledReason(
   selectedEvent: TournamentEventSummary | undefined,
-  eventMatches: MatchSummary[]
+  eventMatches: MatchSummary[],
+  entries: TournamentEventEntrySummary[]
 ) {
   if (!selectedEvent) {
     return "请选择比赛项目";
@@ -575,15 +576,42 @@ function getAdvanceDisabledReason(
 
   const currentRound = Math.max(...eventMatches.map((match) => match.round));
   const currentRoundMatches = eventMatches.filter((match) => match.round === currentRound);
-  if (currentRoundMatches.length < 2) {
-    return "当前项目已有冠军";
-  }
   if (currentRoundMatches.some((match) => !match.winnerId || match.score1 === match.score2)) {
     return "当前轮尚未全部完成";
   }
-  if (currentRoundMatches.length > 1 && currentRoundMatches.length % 2 !== 0) {
-    return "当前轮胜者为奇数，需要轮空落位模型";
+
+  const advancementCandidates = getAdvancementCandidateCount(eventMatches, currentRound, entries);
+  if (advancementCandidates < 2) {
+    return "当前项目已有冠军";
   }
 
   return "";
+}
+
+function getAdvancementCandidateCount(
+  eventMatches: MatchSummary[],
+  currentRound: number,
+  entries: TournamentEventEntrySummary[]
+) {
+  const currentRoundMatches = eventMatches.filter((match) => match.round === currentRound);
+  const currentWinners = currentRoundMatches.filter((match) => match.winnerId && match.score1 !== match.score2);
+  const currentRoundPlayerIds = new Set(
+    currentRoundMatches.flatMap((match) => [match.player1Id, match.player2Id]).filter(Boolean)
+  );
+
+  if (currentRound === 1) {
+    const initialByes = entries.filter(
+      (entry) => entry.status === "registered" && !currentRoundPlayerIds.has(entry.playerId)
+    );
+    return currentWinners.length + initialByes.length;
+  }
+
+  const previousRoundMatches = eventMatches.filter((match) => match.round === currentRound - 1);
+  const pendingByes = previousRoundMatches.filter(
+    (match) =>
+      match.winnerId &&
+      match.score1 !== match.score2 &&
+      !currentRoundPlayerIds.has(match.winnerId)
+  );
+  return currentWinners.length + pendingByes.length;
 }

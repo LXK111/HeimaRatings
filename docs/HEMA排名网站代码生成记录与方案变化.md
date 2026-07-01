@@ -60,6 +60,7 @@
 | v5.4 | 2026-07-01 | Codex | 执行阶段 41，新增 Supabase 登录态浏览器验收 |
 | v5.5 | 2026-07-01 | Codex | 执行阶段 42，新增 viewer 浏览器权限拒绝验收 |
 | v5.6 | 2026-07-01 | Codex | 执行阶段 43，新增真实表单提交路径浏览器权限验收 |
+| v5.7 | 2026-07-01 | Codex | 执行阶段 44，新增自动轮空落位最小闭环 |
 
 ## 1. 文档目的
 
@@ -1540,3 +1541,33 @@ HeimaRatings/
 方案变化：
 
 - Supabase 浏览器验收从“角色边界可通过 API 写入口验证”推进到“真实表单点击路径也能验证角色边界”，后续可以继续补更多管理端表单写路径和自动轮空落位。
+
+### 阶段 44：自动轮空落位最小闭环
+
+方案细节：
+
+- 阶段 44 的目标是让单败淘汰签表在奇数晋级候选时继续推进。
+- 晋级候选不只包含当前轮胜者，还包含之前轮空且尚未进入当前轮的人。
+- 奇数候选时不创建虚拟轮空比赛，而是让最后一名候选继续作为 pending bye 等待后续轮次合并。
+- 轮空不进入 Ranking Engine 比赛输入，避免污染项目级排名。
+- 本阶段不新增 `bracket_slots` 表，先用现有参赛名单和 matches 历史推导最小闭环。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，支持初始轮空和 pending bye 自动合并，并修复当前轮完成度判断。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，在真库晋级路径中推导 pending bye 并只写入真实下一轮对阵。
+- 已更新 `HeimaRatings/components/matches/match-workbench.tsx`，移除奇数胜者直接阻断，按真实晋级候选人数判断是否可继续推进。
+- 已更新 `HeimaRatings/components/matches/bracket-board.tsx`，展示自动轮空者和下一轮自动轮空提示。
+- 已创建 `HeimaRatings/docs/stage-44.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run browser:verify`：通过，已自动执行 `build`、临时启动生产服务，并验证核心页面。
+- `git diff --check`：通过，无空白格式问题。
+
+方案变化：
+
+- 签表晋级从“奇数胜者阻断”推进到“自动轮空并在后续轮次合并”的最小闭环；复杂签位审计和种子位固定仍留给后续 `bracket_slots` 模型。

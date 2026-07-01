@@ -313,18 +313,21 @@ export class MockRepository implements AppRepository {
     const currentRound = Math.max(...eventMatches.map((match) => match.round));
     const currentRoundMatches = eventMatches.filter((match) => match.round === currentRound);
     const winners = currentRoundMatches.map(getCompletedMatchWinner);
-    if (winners.length !== currentRoundMatches.length) {
+    if (winners.some((winner) => !winner)) {
       throw new Error("Current round must be completed before advancing");
     }
-    if (winners.length < 2) {
+    const pendingByes = getPendingByeEntrants(
+      eventMatches,
+      currentRound,
+      listTournamentEventEntries(eventId)
+    );
+    const advancementEntrants = [...winners, ...pendingByes];
+    if (advancementEntrants.length < 2) {
       throw new Error("Tournament event already has a champion");
-    }
-    if (winners.length % 2 !== 0) {
-      throw new Error("Odd winner count requires explicit bye placement");
     }
 
     return appendMatchDrafts(
-      buildNextRoundMatches(tournamentId, eventId, event.weaponTypeId, currentRound + 1, winners)
+      buildNextRoundMatches(tournamentId, eventId, event.weaponTypeId, currentRound + 1, advancementEntrants)
     );
   }
 
@@ -471,6 +474,35 @@ function getCompletedMatchWinner(match: MatchSummary) {
     id: match.winnerId,
     name: match.winnerName
   };
+}
+
+function getPendingByeEntrants(
+  eventMatches: MatchSummary[],
+  currentRound: number,
+  entries: MockBracketEntry[]
+) {
+  const currentRoundPlayerIds = new Set(
+    eventMatches
+      .filter((match) => match.round === currentRound)
+      .flatMap((match) => [match.player1Id, match.player2Id])
+      .filter(Boolean)
+  );
+
+  if (currentRound === 1) {
+    return entries
+      .filter((entry) => entry.status === "registered" && !currentRoundPlayerIds.has(entry.playerId))
+      .sort(compareEntriesBySeed)
+      .map((entry) => ({
+        id: entry.playerId,
+        name: entry.playerName
+      }));
+  }
+
+  return eventMatches
+    .filter((match) => match.round === currentRound - 1)
+    .map(getCompletedMatchWinner)
+    .filter((winner): winner is { id: string; name: string } => Boolean(winner))
+    .filter((winner) => !currentRoundPlayerIds.has(winner.id));
 }
 
 function buildNextRoundMatches(

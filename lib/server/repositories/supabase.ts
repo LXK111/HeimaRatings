@@ -792,18 +792,33 @@ export class SupabaseRepository implements AppRepository {
     if (currentRoundMatches.some((match) => !match.winner_id || match.score1 === match.score2)) {
       throw new Error("Current round must be completed before advancing");
     }
-    if (currentRoundMatches.length < 2) {
+    const entries = currentRound === 1
+      ? await this.query<TournamentEventEntryRow[]>(
+        (await this.getClient())
+          .from("tournament_event_entries")
+          .select("*")
+          .eq("event_id", resolvedEventId)
+          .eq("status", "registered")
+          .order("seed", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: true }),
+        "advanceBracket.entries"
+      )
+      : [];
+    const advancementEntrantIds = [
+      ...currentRoundMatches
+        .map((match) => match.winner_id)
+        .filter((winnerId): winnerId is string => Boolean(winnerId)),
+      ...getPendingByeEntrantIds(eventMatches, currentRound, entries)
+    ];
+    if (advancementEntrantIds.length < 2) {
       throw new Error("Tournament event already has a champion");
-    }
-    if (currentRoundMatches.length % 2 !== 0) {
-      throw new Error("Odd winner count requires explicit bye placement");
     }
 
     const inserted = await this.query<MatchRow[]>(
       (await this.getClient())
         .from("matches")
         .insert(
-          buildNextRoundMatchRows(resolvedTournamentId, event, currentRound + 1, currentRoundMatches)
+          buildNextRoundMatchRows(resolvedTournamentId, event, currentRound + 1, advancementEntrantIds)
         )
         .select("*"),
       "advanceBracket.insertMatches"
@@ -1908,14 +1923,10 @@ function buildNextRoundMatchRows(
   tournamentId: string,
   event: TournamentEventRow,
   round: number,
-  currentRoundMatches: MatchRow[]
+  entrantIds: string[]
 ) {
-  const winners = currentRoundMatches
-    .map((match) => match.winner_id)
-    .filter((winnerId): winnerId is string => Boolean(winnerId));
-
-  return winners
-    .slice(0, Math.floor(winners.length / 2) * 2)
+  return entrantIds
+    .slice(0, Math.floor(entrantIds.length / 2) * 2)
     .reduce<Array<Partial<MatchRow>>>((acc, _winnerId, index, normalizedWinners) => {
       if (index % 2 !== 0) {
         return acc;
@@ -1936,6 +1947,30 @@ function buildNextRoundMatchRows(
 
       return acc;
     }, []);
+}
+
+function getPendingByeEntrantIds(
+  eventMatches: MatchRow[],
+  currentRound: number,
+  entries: TournamentEventEntryRow[]
+) {
+  const currentRoundPlayerIds = new Set(
+    eventMatches
+      .filter((match) => match.round === currentRound)
+      .flatMap((match) => [match.player1_id, match.player2_id])
+  );
+
+  if (currentRound === 1) {
+    return entries
+      .filter((entry) => !currentRoundPlayerIds.has(entry.player_id))
+      .map((entry) => entry.player_id);
+  }
+
+  return eventMatches
+    .filter((match) => match.round === currentRound - 1)
+    .map((match) => match.winner_id)
+    .filter((winnerId): winnerId is string => Boolean(winnerId))
+    .filter((winnerId) => !currentRoundPlayerIds.has(winnerId));
 }
 
 function collectLatestEventSnapshots(snapshots: RankingSnapshotRow[]) {

@@ -166,18 +166,62 @@ function getByeNotices(entries: TournamentEventEntrySummary[], matches: MatchSum
     }
   }
 
+  const completedRounds = Array.from(new Set(matches.map((match) => match.round)))
+    .sort((a, b) => a - b)
+    .slice(1);
+  for (const round of completedRounds) {
+    const previousRoundMatches = matches.filter((match) => match.round === round - 1);
+    const roundPlayerIds = new Set(
+      matches
+        .filter((match) => match.round === round)
+        .flatMap((match) => [match.player1Id, match.player2Id])
+        .filter(Boolean)
+    );
+    const automaticByes = previousRoundMatches
+      .filter((match) => match.winnerId && match.score1 !== match.score2 && !roundPlayerIds.has(match.winnerId))
+      .map((match) => match.winnerName);
+    if (automaticByes.length > 0) {
+      notices.push(`第 ${round} 轮轮空：${automaticByes.join("、")} 自动进入后续轮次。`);
+    }
+  }
+
   const latestRound = matches.length > 0 ? Math.max(...matches.map((match) => match.round)) : undefined;
   const latestMatches = latestRound
     ? matches.filter((match) => match.round === latestRound)
     : [];
   const completedWinners = latestMatches.filter((match) => match.winnerId && match.score1 !== match.score2);
+  const pendingByes = latestRound ? getPendingByeNames(registeredEntries, matches, latestRound) : [];
   if (
     latestMatches.length > 1 &&
     completedWinners.length === latestMatches.length &&
-    completedWinners.length % 2 !== 0
+    (completedWinners.length + pendingByes.length) % 2 !== 0
   ) {
-    notices.push("当前轮胜者数量为奇数，下一轮需要轮空落位；本阶段先提示，不自动创建虚拟轮空。");
+    notices.push("当前轮晋级候选为奇数，生成下一轮时会自动安排最后一名候选轮空。");
   }
 
   return notices;
+}
+
+function getPendingByeNames(
+  registeredEntries: TournamentEventEntrySummary[],
+  matches: MatchSummary[],
+  currentRound: number
+) {
+  const currentRoundPlayerIds = new Set(
+    matches
+      .filter((match) => match.round === currentRound)
+      .flatMap((match) => [match.player1Id, match.player2Id])
+      .filter(Boolean)
+  );
+
+  if (currentRound === 1) {
+    return registeredEntries
+      .filter((entry) => !currentRoundPlayerIds.has(entry.playerId))
+      .map((entry) => entry.playerName);
+  }
+
+  return matches
+    .filter((match) => match.round === currentRound - 1)
+    .filter((match) => match.winnerId && match.score1 !== match.score2 && !currentRoundPlayerIds.has(match.winnerId))
+    .map((match) => match.winnerName);
 }
