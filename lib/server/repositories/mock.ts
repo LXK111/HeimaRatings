@@ -1,11 +1,13 @@
-import type { MatchSummary, RankingRow } from "@/lib/domain/types";
+import type { BracketSlotSummary, MatchSummary, RankingRow } from "@/lib/domain/types";
 import {
+  appendBracketSlots,
   appendMatchDrafts,
   buildRankingEngineInput,
   createMatchDraft,
   getPublicRankingPage,
   getRankingSnapshot,
   listPublicRankingPages,
+  listTournamentEventBracketSlots,
   getTournament,
   listTournamentEventEntries,
   listPlayers,
@@ -262,6 +264,9 @@ export class MockRepository implements AppRepository {
     if (listTournamentMatches(tournamentId).some((match) => match.eventId === eventId)) {
       throw new Error("Tournament event already has matches");
     }
+    if (listTournamentEventBracketSlots(eventId).length > 0) {
+      throw new Error("Tournament event already has bracket slots");
+    }
 
     const entries = listTournamentEventEntries(eventId)
       .filter((entry) => entry.status === "registered")
@@ -277,6 +282,9 @@ export class MockRepository implements AppRepository {
         : undefined;
     if (!pairs) {
       throw new Error("Bracket generation is only available for single elimination and round robin events");
+    }
+    if (event.format === "single_elimination") {
+      appendBracketSlots(buildInitialBracketSlots(eventId, entries, pairs));
     }
 
     const drafts = pairs.map(([player1, player2], index) => ({
@@ -411,6 +419,48 @@ function buildSingleEliminationPairs(entries: MockBracketEntry[]) {
   }
 
   return pairs;
+}
+
+function buildInitialBracketSlots(
+  eventId: string,
+  entries: MockBracketEntry[],
+  pairs: Array<[MockBracketEntry, MockBracketEntry]>
+): BracketSlotSummary[] {
+  const pairedPlayerIds = new Set(pairs.flatMap(([player1, player2]) => [player1.playerId, player2.playerId]));
+  const byeEntries = entries.filter((entry) => !pairedPlayerIds.has(entry.playerId));
+  let slotIndex = 1;
+
+  return [
+    ...pairs.flatMap(([player1, player2]) => [
+      {
+        id: `slot-mock-${Date.now()}-${slotIndex}`,
+        eventId,
+        round: 1,
+        slotIndex: slotIndex++,
+        playerId: player1.playerId,
+        playerName: player1.playerName,
+        status: "occupied" as const
+      },
+      {
+        id: `slot-mock-${Date.now()}-${slotIndex}`,
+        eventId,
+        round: 1,
+        slotIndex: slotIndex++,
+        playerId: player2.playerId,
+        playerName: player2.playerName,
+        status: "occupied" as const
+      }
+    ]),
+    ...byeEntries.map((entry) => ({
+      id: `slot-mock-${Date.now()}-${slotIndex}`,
+      eventId,
+      round: 1,
+      slotIndex: slotIndex++,
+      playerId: entry.playerId,
+      playerName: entry.playerName,
+      status: "bye" as const
+    }))
+  ];
 }
 
 function buildRoundRobinPairs(entries: MockBracketEntry[]) {

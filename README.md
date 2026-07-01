@@ -56,6 +56,7 @@
 | v5.0 | 2026-07-01 | Codex | 更新阶段 49 Ranking Engine 输入构造回归测试状态 |
 | v5.1 | 2026-07-01 | Codex | 更新阶段 50 Supabase 真库 Ranking Engine 输入构造回归验收状态 |
 | v5.2 | 2026-07-01 | Codex | 更新阶段 51 bracket_slots 签位模型数据库基础状态 |
+| v5.3 | 2026-07-01 | Codex | 更新阶段 52 签表生成写入 bracket_slots 状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -83,7 +84,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 51：bracket_slots 签位模型数据库基础。
+当前已推进到阶段 52：签表生成写入 bracket_slots。
 
 已完成阶段：
 
@@ -139,6 +140,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 49：新增 API/Repository 级 Ranking Engine 输入构造回归测试，覆盖项目过滤和轮空不生成虚拟比赛。
 - 阶段 50：新增 Supabase 真库 Ranking Engine 输入构造回归验收，覆盖真实组织上下文、管理 API 鉴权和轮空不生成虚拟比赛。
 - 阶段 51：新增 `bracket_slots` 签位模型数据库基础，支持固定签位、轮空、晋级来源和组织隔离约束验收。
+- 阶段 52：初始签表生成同步写入 `bracket_slots`，轮空记录为 slot 而不是虚拟 match，并新增真库生成验收。
 
 当前阶段边界：
 
@@ -170,6 +172,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 比赛项目管理页已支持新增和编辑项目元数据，可维护项目名称、绑定武器、赛制和状态。
 - 比赛项目页已支持维护参赛名单，Supabase 真库需执行阶段 31 migration 后启用真实持久化。
 - 比赛项目页已支持生成签表草稿；已有比赛时会拒绝重复生成，避免覆盖真实结果。
+- 比赛项目页生成初始单败淘汰签表时，Supabase/Mock Repository 会同步写入首轮 `bracket_slots`；轮空写为 `bye` slot，不生成虚拟比赛。
 - 比赛录入页已支持更新已有对阵结果；单败淘汰项目可在当前轮全部完成后生成下一轮草稿。
 - 比赛录入页已支持按当前项目查看轮次分组签表，展示比分、胜者、完成状态和冠军提示。
 - 比赛录入页已支持首轮轮空提示和自动轮空落位；奇数晋级候选生成下一轮时不会创建虚拟比赛，轮空者会在后续轮次继续合并。
@@ -182,6 +185,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run ranking:verify` 会直接调用 Python Ranking Engine，验证固定排名输入输出和轮空排除边界。
 - `npm run ranking:input:verify` 会启动 Mock 临时服务，验证 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run ranking:supabase:verify` 会以 Supabase 模式创建临时组织和赛事数据，验证真库 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
+- `npm run bracket:slots:verify` 会以 Supabase 模式创建临时三人单败项目，验证初始签表生成会写入 `bracket_slots` 并保留真实 match 数量。
 - `npm run public:verify` 会以 Supabase 模式创建临时多武器公开页，验证公开 API 和浏览器公开页展示后清理临时数据。
 - `npm run auth:browser:verify` 会以 Supabase 模式启动临时服务，用真实 viewer/editor 测试账号验证浏览器登录态、viewer 写权限拒绝、editor 多个真实管理表单提交和行内编辑保存。
 - 公开页和嵌入页的 `AppShell` 不再触发管理端授权上下文，匿名访问不会被重定向到登录页。
@@ -189,7 +193,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 后续阶段
 
-- 后续增强：将签表生成和晋级落位写入 `bracket_slots`，让管理端签表视图从固定签位模型读取。
+- 后续增强：将晋级落位写入 `bracket_slots`，并让管理端签表视图从固定签位模型读取。
 
 ## 遗留 TODO
 

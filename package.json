@@ -12,6 +12,7 @@
     "ranking:verify": "node scripts/verify_ranking_engine_regression.mjs",
     "ranking:input:verify": "node scripts/verify_ranking_input_construction.mjs",
     "ranking:supabase:verify": "node scripts/verify_supabase_ranking_input_construction.mjs",
+    "bracket:slots:verify": "node scripts/verify_supabase_bracket_slots_generation.mjs",
     "auth:verify": "node scripts/verify_supabase_auth_rls_e2e.mjs",
     "auth:api:verify": "node scripts/verify_management_auth_api_e2e.mjs",
     "public:verify": "node scripts/verify_public_multi_weapon_e2e.mjs",

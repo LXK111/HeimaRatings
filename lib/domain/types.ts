@@ -233,6 +233,17 @@ export interface TournamentEventEntrySummary {
   status: TournamentEventEntryStatus;
 }
 
+export interface BracketSlotSummary {
+  id: string;
+  eventId: string;
+  round: number;
+  slotIndex: number;
+  playerId?: string;
+  playerName?: string;
+  sourceMatchId?: string;
+  status: "empty" | "occupied" | "bye" | "advanced";
+}
+
 export interface MatchSummary {
   id: string;
   tournamentId: string;

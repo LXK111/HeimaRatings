@@ -11,6 +11,7 @@ import type {
   WeaponType
 } from "@/lib/domain/types";
 import type {
+  BracketSlotRow,
   MatchRow,
   OrganizationRow,
   OrganizationMemberRow,
@@ -700,6 +701,17 @@ export class SupabaseRepository implements AppRepository {
     if (existingMatches.length > 0) {
       throw new Error("Tournament event already has matches");
     }
+    const existingSlots = await this.query<Pick<BracketSlotRow, "id">[]>(
+      (await this.getClient())
+        .from("bracket_slots")
+        .select("id")
+        .eq("event_id", resolvedEventId)
+        .limit(1),
+      "generateBracket.existingSlots"
+    );
+    if (existingSlots.length > 0) {
+      throw new Error("Tournament event already has bracket slots");
+    }
 
     const entries = await this.query<TournamentEventEntryRow[]>(
       (await this.getClient())
@@ -722,6 +734,15 @@ export class SupabaseRepository implements AppRepository {
         : undefined;
     if (!pairs) {
       throw new Error("Bracket generation is only available for single elimination and round robin events");
+    }
+    if (event.format === "single_elimination") {
+      await this.query<BracketSlotRow[]>(
+        (await this.getClient())
+          .from("bracket_slots")
+          .insert(buildInitialBracketSlotRows(resolvedEventId, entries, pairs))
+          .select("*"),
+        "generateBracket.insertSlots"
+      );
     }
 
     const inserted = await this.query<MatchRow[]>(
@@ -1906,6 +1927,42 @@ function buildSingleEliminationEntryPairs(entries: TournamentEventEntryRow[]) {
   }
 
   return pairs;
+}
+
+function buildInitialBracketSlotRows(
+  eventId: string,
+  entries: TournamentEventEntryRow[],
+  pairs: Array<[TournamentEventEntryRow, TournamentEventEntryRow]>
+) {
+  const pairedPlayerIds = new Set(pairs.flatMap(([player1, player2]) => [player1.player_id, player2.player_id]));
+  const byeEntries = entries.filter((entry) => !pairedPlayerIds.has(entry.player_id));
+  let slotIndex = 1;
+
+  return [
+    ...pairs.flatMap(([player1, player2]) => [
+      {
+        event_id: eventId,
+        round: 1,
+        slot_index: slotIndex++,
+        player_id: player1.player_id,
+        status: "occupied" as const
+      },
+      {
+        event_id: eventId,
+        round: 1,
+        slot_index: slotIndex++,
+        player_id: player2.player_id,
+        status: "occupied" as const
+      }
+    ]),
+    ...byeEntries.map((entry) => ({
+      event_id: eventId,
+      round: 1,
+      slot_index: slotIndex++,
+      player_id: entry.player_id,
+      status: "bye" as const
+    }))
+  ];
 }
 
 function buildRoundRobinEntryPairs(entries: TournamentEventEntryRow[]) {

@@ -1,4 +1,5 @@
 import type {
+  BracketSlotSummary,
   MatchSummary,
   PublicRankingPagePayload,
   PublicRankingPageSummary,
@@ -48,6 +49,19 @@ export function listTournamentEventEntries(eventId: string) {
 export function listTournamentMatches(tournamentId: string) {
   const resolvedId = resolveDemoTournamentId(tournamentId);
   return matches.filter((match) => match.tournamentId === resolvedId);
+}
+
+const bracketSlots: BracketSlotSummary[] = [];
+
+export function listTournamentEventBracketSlots(eventId: string) {
+  return bracketSlots
+    .filter((slot) => slot.eventId === eventId)
+    .sort((a, b) => a.round - b.round || a.slotIndex - b.slotIndex);
+}
+
+export function appendBracketSlots(slots: BracketSlotSummary[]) {
+  bracketSlots.push(...slots);
+  return slots;
 }
 
 export function getRankingSnapshot(snapshotId: string) {
