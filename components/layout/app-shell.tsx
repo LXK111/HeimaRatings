@@ -44,7 +44,9 @@ export async function AppShell({
   children
 }: AppShellProps) {
   const authUser = showOrganizationSwitcher ? await requireManagementUser() : undefined;
-  const repositoryContext = await getServerRepositoryContext();
+  const repositoryContext = await getServerRepositoryContext({
+    authorize: showOrganizationSwitcher
+  });
   const organizationState =
     showOrganizationSwitcher && authUser
       ? await getAuthorizedOrganizationState(repositoryContext, authUser)

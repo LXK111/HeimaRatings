@@ -13,6 +13,7 @@
     "auth:api:verify": "node scripts/verify_management_auth_api_e2e.mjs",
     "db:verify": "node scripts/verify_database_constraints.mjs",
     "browser:verify": "node scripts/verify_browser_pages.mjs",
+    "auth:browser:verify": "node scripts/verify_management_auth_browser_e2e.mjs",
     "verify": "node scripts/verify_local.mjs"
   },
   "dependencies": {

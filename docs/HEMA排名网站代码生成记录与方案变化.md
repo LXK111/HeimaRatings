@@ -57,6 +57,7 @@
 | v5.1 | 2026-07-01 | Codex | 执行阶段 38，新增签表/项目排名真库验收脚本 |
 | v5.2 | 2026-07-01 | Codex | 执行阶段 39，新增公开页发布目标选择 |
 | v5.3 | 2026-07-01 | Codex | 执行阶段 40，新增浏览器自动化页面流验收 |
+| v5.4 | 2026-07-01 | Codex | 执行阶段 41，新增 Supabase 登录态浏览器验收 |
 
 ## 1. 文档目的
 
@@ -1448,3 +1449,34 @@ HeimaRatings/
 方案变化：
 
 - 验收体系从 API/数据库为主推进到包含浏览器页面流，后续可以继续扩展 Supabase 登录态和真实表单提交路径。
+
+### 阶段 41：Supabase 登录态浏览器验收
+
+方案细节：
+
+- 阶段 41 的目标是把 Supabase Auth 登录态从 API Cookie 验收推进到真实浏览器表单流。
+- 浏览器脚本以 Supabase 数据源和登录保护开启模式启动临时生产服务。
+- 匿名管理页应被重定向到登录页。
+- 公开页应保持匿名可访问，不应触发管理端登录保护。
+- editor 测试账号应能通过 `/login` 表单进入管理端页面。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_management_auth_browser_e2e.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run auth:browser:verify`。
+- 已更新 `HeimaRatings/components/layout/app-shell.tsx`，修复公开页关闭组织切换时仍触发授权上下文的问题。
+- 已创建 `HeimaRatings/docs/stage-41.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、运行命令和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_management_auth_browser_e2e.mjs`：通过，脚本语法无错误。
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run browser:verify`：通过，已自动执行 `build`、临时启动生产服务，并验证核心页面。
+- `npm run auth:browser:verify`：通过，已验证匿名管理页重定向、匿名公开页访问、editor 登录和登录后管理页访问。
+
+方案变化：
+
+- 验收体系从 Mock 浏览器页面流推进到 Supabase Auth 真实浏览器登录流，并修复了公开页误触发管理端鉴权的问题。
