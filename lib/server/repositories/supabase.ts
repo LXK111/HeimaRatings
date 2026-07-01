@@ -54,6 +54,10 @@ const defaultOrganizationSlug = "hema-ratings-demo";
 type SupabaseClientProvider = () =>
   | ReturnType<typeof createServerSupabaseClient>
   | Promise<ReturnType<typeof createServerSupabaseClient>>;
+type BracketAdvancementEntrant = {
+  playerId: string;
+  sourceMatchId?: string;
+};
 
 const idAliases: Record<string, string> = {
   demo: demoTournamentId,
@@ -810,6 +814,18 @@ export class SupabaseRepository implements AppRepository {
     if (nextRoundMatches.length > 0) {
       throw new Error("Next round already exists");
     }
+    const nextRoundSlots = await this.query<Pick<BracketSlotRow, "id">[]>(
+      (await this.getClient())
+        .from("bracket_slots")
+        .select("id")
+        .eq("event_id", resolvedEventId)
+        .eq("round", currentRound + 1)
+        .limit(1),
+      "advanceBracket.nextRoundSlots"
+    );
+    if (nextRoundSlots.length > 0) {
+      throw new Error("Next round bracket slots already exist");
+    }
     if (currentRoundMatches.some((match) => !match.winner_id || match.score1 === match.score2)) {
       throw new Error("Current round must be completed before advancing");
     }
@@ -825,21 +841,34 @@ export class SupabaseRepository implements AppRepository {
         "advanceBracket.entries"
       )
       : [];
-    const advancementEntrantIds = [
+    const advancementEntrants = [
       ...currentRoundMatches
-        .map((match) => match.winner_id)
-        .filter((winnerId): winnerId is string => Boolean(winnerId)),
-      ...getPendingByeEntrantIds(eventMatches, currentRound, entries)
+        .flatMap((match): BracketAdvancementEntrant[] =>
+          match.winner_id ? [{ playerId: match.winner_id, sourceMatchId: match.id }] : []
+        ),
+      ...getPendingByeEntrants(eventMatches, currentRound, entries)
     ];
-    if (advancementEntrantIds.length < 2) {
+    if (advancementEntrants.length < 2) {
       throw new Error("Tournament event already has a champion");
     }
+    await this.query<BracketSlotRow[]>(
+      (await this.getClient())
+        .from("bracket_slots")
+        .insert(buildNextRoundBracketSlotRows(resolvedEventId, currentRound + 1, advancementEntrants))
+        .select("*"),
+      "advanceBracket.insertSlots"
+    );
 
     const inserted = await this.query<MatchRow[]>(
       (await this.getClient())
         .from("matches")
         .insert(
-          buildNextRoundMatchRows(resolvedTournamentId, event, currentRound + 1, advancementEntrantIds)
+          buildNextRoundMatchRows(
+            resolvedTournamentId,
+            event,
+            currentRound + 1,
+            advancementEntrants.map((entrant) => entrant.playerId)
+          )
         )
         .select("*"),
       "advanceBracket.insertMatches"
@@ -2006,11 +2035,32 @@ function buildNextRoundMatchRows(
     }, []);
 }
 
-function getPendingByeEntrantIds(
+function buildNextRoundBracketSlotRows(
+  eventId: string,
+  round: number,
+  entrants: BracketAdvancementEntrant[]
+) {
+  const pairedCount = Math.floor(entrants.length / 2) * 2;
+
+  return entrants.map((entrant, index) => ({
+    event_id: eventId,
+    round,
+    slot_index: index + 1,
+    player_id: entrant.playerId,
+    source_match_id: entrant.sourceMatchId,
+    status: entrant.sourceMatchId
+      ? "advanced" as const
+      : index < pairedCount
+        ? "occupied" as const
+        : "bye" as const
+  }));
+}
+
+function getPendingByeEntrants(
   eventMatches: MatchRow[],
   currentRound: number,
   entries: TournamentEventEntryRow[]
-) {
+): BracketAdvancementEntrant[] {
   const currentRoundPlayerIds = new Set(
     eventMatches
       .filter((match) => match.round === currentRound)
@@ -2020,14 +2070,15 @@ function getPendingByeEntrantIds(
   if (currentRound === 1) {
     return entries
       .filter((entry) => !currentRoundPlayerIds.has(entry.player_id))
-      .map((entry) => entry.player_id);
+      .map((entry) => ({ playerId: entry.player_id }));
   }
 
   return eventMatches
     .filter((match) => match.round === currentRound - 1)
-    .map((match) => match.winner_id)
-    .filter((winnerId): winnerId is string => Boolean(winnerId))
-    .filter((winnerId) => !currentRoundPlayerIds.has(winnerId));
+    .flatMap((match): BracketAdvancementEntrant[] =>
+      match.winner_id ? [{ playerId: match.winner_id, sourceMatchId: match.id }] : []
+    )
+    .filter((entrant) => !currentRoundPlayerIds.has(entrant.playerId));
 }
 
 function collectLatestEventSnapshots(snapshots: RankingSnapshotRow[]) {

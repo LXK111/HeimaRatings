@@ -57,6 +57,7 @@
 | v5.1 | 2026-07-01 | Codex | 更新阶段 50 Supabase 真库 Ranking Engine 输入构造回归验收状态 |
 | v5.2 | 2026-07-01 | Codex | 更新阶段 51 bracket_slots 签位模型数据库基础状态 |
 | v5.3 | 2026-07-01 | Codex | 更新阶段 52 签表生成写入 bracket_slots 状态 |
+| v5.4 | 2026-07-01 | Codex | 更新阶段 53 晋级落位写入 bracket_slots 状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -84,7 +85,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 52：签表生成写入 bracket_slots。
+当前已推进到阶段 53：晋级落位写入 bracket_slots。
 
 已完成阶段：
 
@@ -141,6 +142,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 50：新增 Supabase 真库 Ranking Engine 输入构造回归验收，覆盖真实组织上下文、管理 API 鉴权和轮空不生成虚拟比赛。
 - 阶段 51：新增 `bracket_slots` 签位模型数据库基础，支持固定签位、轮空、晋级来源和组织隔离约束验收。
 - 阶段 52：初始签表生成同步写入 `bracket_slots`，轮空记录为 slot 而不是虚拟 match，并新增真库生成验收。
+- 阶段 53：单败淘汰晋级同步写入下一轮 `bracket_slots`，真实胜者记录来源比赛，pending bye 进入下一轮签位。
 
 当前阶段边界：
 
@@ -174,6 +176,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 比赛项目页已支持生成签表草稿；已有比赛时会拒绝重复生成，避免覆盖真实结果。
 - 比赛项目页生成初始单败淘汰签表时，Supabase/Mock Repository 会同步写入首轮 `bracket_slots`；轮空写为 `bye` slot，不生成虚拟比赛。
 - 比赛录入页已支持更新已有对阵结果；单败淘汰项目可在当前轮全部完成后生成下一轮草稿。
+- 单败淘汰生成下一轮时，Supabase/Mock Repository 会同步写入下一轮 `bracket_slots`；真实胜者使用 `advanced + source_match_id`，pending bye 进入对阵时使用 `occupied`。
 - 比赛录入页已支持按当前项目查看轮次分组签表，展示比分、胜者、完成状态和冠军提示。
 - 比赛录入页已支持首轮轮空提示和自动轮空落位；奇数晋级候选生成下一轮时不会创建虚拟比赛，轮空者会在后续轮次继续合并。
 - 数据库侧已新增 `bracket_slots` 签位模型，可记录项目内固定签位、轮空状态和晋级来源；现有签表生成逻辑暂未写入该表。
@@ -186,6 +189,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run ranking:input:verify` 会启动 Mock 临时服务，验证 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run ranking:supabase:verify` 会以 Supabase 模式创建临时组织和赛事数据，验证真库 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run bracket:slots:verify` 会以 Supabase 模式创建临时三人单败项目，验证初始签表生成会写入 `bracket_slots` 并保留真实 match 数量。
+- `npm run bracket:slots:advance:verify` 会以 Supabase 模式验证生成首轮、完成比赛、生成下一轮、下一轮 slots 和真实 match 数量。
 - `npm run public:verify` 会以 Supabase 模式创建临时多武器公开页，验证公开 API 和浏览器公开页展示后清理临时数据。
 - `npm run auth:browser:verify` 会以 Supabase 模式启动临时服务，用真实 viewer/editor 测试账号验证浏览器登录态、viewer 写权限拒绝、editor 多个真实管理表单提交和行内编辑保存。
 - 公开页和嵌入页的 `AppShell` 不再触发管理端授权上下文，匿名访问不会被重定向到登录页。
@@ -193,7 +197,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 后续阶段
 
-- 后续增强：将晋级落位写入 `bracket_slots`，并让管理端签表视图从固定签位模型读取。
+- 后续增强：让管理端签表视图从 `bracket_slots` 固定签位模型读取。
 
 ## 遗留 TODO
 

@@ -320,6 +320,12 @@ export class MockRepository implements AppRepository {
 
     const currentRound = Math.max(...eventMatches.map((match) => match.round));
     const currentRoundMatches = eventMatches.filter((match) => match.round === currentRound);
+    if (eventMatches.some((match) => match.round === currentRound + 1)) {
+      throw new Error("Next round already exists");
+    }
+    if (listTournamentEventBracketSlots(eventId).some((slot) => slot.round === currentRound + 1)) {
+      throw new Error("Next round bracket slots already exist");
+    }
     const winners = currentRoundMatches.map(getCompletedMatchWinner);
     if (winners.some((winner) => !winner)) {
       throw new Error("Current round must be completed before advancing");
@@ -333,6 +339,7 @@ export class MockRepository implements AppRepository {
     if (advancementEntrants.length < 2) {
       throw new Error("Tournament event already has a champion");
     }
+    appendBracketSlots(buildNextRoundBracketSlots(eventId, currentRound + 1, advancementEntrants));
 
     return appendMatchDrafts(
       buildNextRoundMatches(tournamentId, eventId, event.weaponTypeId, currentRound + 1, advancementEntrants)
@@ -397,6 +404,11 @@ export class MockRepository implements AppRepository {
 }
 
 type MockBracketEntry = Awaited<ReturnType<typeof listTournamentEventEntries>>[number];
+type MockAdvancementEntrant = {
+  id: string;
+  name: string;
+  sourceMatchId?: string;
+};
 
 function compareEntriesBySeed(a: MockBracketEntry, b: MockBracketEntry) {
   const seedA = a.seed ?? Number.MAX_SAFE_INTEGER;
@@ -512,7 +524,7 @@ function validateMatchResultInput(match: MatchSummary, input: UpdateMatchResultI
   }
 }
 
-function getCompletedMatchWinner(match: MatchSummary) {
+function getCompletedMatchWinner(match: MatchSummary): MockAdvancementEntrant | undefined {
   if (!match.winnerId || match.winnerName === "平局") {
     return undefined;
   }
@@ -522,7 +534,8 @@ function getCompletedMatchWinner(match: MatchSummary) {
 
   return {
     id: match.winnerId,
-    name: match.winnerName
+    name: match.winnerName,
+    sourceMatchId: match.id
   };
 }
 
@@ -555,14 +568,40 @@ function getPendingByeEntrants(
     .filter((winner) => !currentRoundPlayerIds.has(winner.id));
 }
 
+function buildNextRoundBracketSlots(
+  eventId: string,
+  round: number,
+  entrants: Array<MockAdvancementEntrant | undefined>
+): BracketSlotSummary[] {
+  const completedEntrants = entrants.filter(
+    (entrant): entrant is MockAdvancementEntrant => Boolean(entrant)
+  );
+  const pairedCount = Math.floor(completedEntrants.length / 2) * 2;
+
+  return completedEntrants.map((entrant, index) => ({
+    id: `slot-advance-mock-${Date.now()}-${index + 1}`,
+    eventId,
+    round,
+    slotIndex: index + 1,
+    playerId: entrant.id,
+    playerName: entrant.name,
+    sourceMatchId: entrant.sourceMatchId,
+    status: entrant.sourceMatchId
+      ? "advanced" as const
+      : index < pairedCount
+        ? "occupied" as const
+        : "bye" as const
+  }));
+}
+
 function buildNextRoundMatches(
   tournamentId: string,
   eventId: string,
   weaponTypeId: string,
   round: number,
-  winners: Array<{ id: string; name: string } | undefined>
+  winners: Array<MockAdvancementEntrant | undefined>
 ) {
-  const completedWinners = winners.filter((winner): winner is { id: string; name: string } => Boolean(winner));
+  const completedWinners = winners.filter((winner): winner is MockAdvancementEntrant => Boolean(winner));
   const matches: MatchSummary[] = [];
   for (let i = 0; i + 1 < completedWinners.length; i += 2) {
     const player1 = completedWinners[i];

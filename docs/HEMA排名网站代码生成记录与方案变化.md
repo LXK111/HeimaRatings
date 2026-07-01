@@ -69,6 +69,7 @@
 | v6.3 | 2026-07-01 | Codex | 执行阶段 50，新增 Supabase 真库 Ranking Engine 输入构造回归验收 |
 | v6.4 | 2026-07-01 | Codex | 执行阶段 51，新增 bracket_slots 签位模型数据库基础 |
 | v6.5 | 2026-07-01 | Codex | 执行阶段 52，新增初始签表生成写入 bracket_slots |
+| v6.6 | 2026-07-01 | Codex | 执行阶段 53，新增晋级落位写入 bracket_slots |
 
 ## 1. 文档目的
 
@@ -1813,3 +1814,36 @@ HeimaRatings/
 方案变化：
 
 - 签表生成从“只写真实 matches”推进到“真实 matches 与 bracket_slots 并行写入”；后续可继续把晋级落位和页面展示切到 slot 模型。
+
+### 阶段 53：晋级落位写入 bracket_slots
+
+方案细节：
+
+- 阶段 53 的目标是让单败淘汰晋级生成下一轮时同步写入 `bracket_slots`。
+- 真实比赛胜者进入下一轮时写 `advanced` slot，并保存 `source_match_id`。
+- pending bye 进入下一轮并参与对阵时写 `occupied` slot，不保存 `source_match_id`。
+- 奇数晋级候选继续轮空时写 `bye` slot。
+- 已有下一轮 `matches` 或下一轮 `bracket_slots` 时拒绝重复晋级。
+- 本阶段不改变签表页面读取逻辑，也不新增 slot 查询 API。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，晋级生成下一轮时同步写入 `bracket_slots`。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，Mock 晋级路径同步写入内存 slots。
+- 已新增 `HeimaRatings/scripts/verify_supabase_bracket_slots_advancement.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run bracket:slots:advance:verify`。
+- 已创建 `HeimaRatings/docs/stage-53.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、运行命令、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_supabase_bracket_slots_advancement.mjs`：通过，脚本语法无错误。
+- `npm run bracket:slots:advance:verify`：通过，真库验证 editor 初始生成、首轮完赛、viewer 晋级拒绝、editor 晋级和下一轮 slots。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `npm run db:verify`：通过，数据库约束验收仍通过。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，Mock 模式完整本地验收通过。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- 签表模型从“只有初始生成写入 slots”推进到“初始生成和晋级落位都写入 slots”；后续可让管理端签表视图从固定签位模型读取。
