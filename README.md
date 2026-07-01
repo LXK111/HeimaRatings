@@ -63,6 +63,7 @@
 | v5.7 | 2026-07-01 | Codex | 更新阶段 55 签表视图浏览器验收状态 |
 | v5.8 | 2026-07-01 | Codex | 更新阶段 58 真实数据导入工具状态 |
 | v5.9 | 2026-07-01 | Codex | 更新阶段 59 公开页和嵌入页生产化细节状态 |
+| v6.0 | 2026-07-01 | Codex | 更新阶段 60 部署前运行形态收口状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -90,7 +91,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 59：公开页和嵌入页生产化细节。
+当前已推进到阶段 60：部署前运行形态收口。
 
 已完成阶段：
 
@@ -152,6 +153,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 55：扩展签表晋级真库验收脚本，用真实浏览器验证 editor/viewer 都能读取管理端签表中的固定签位、轮空和晋级来源。
 - 阶段 58：新增 CSV 真实数据导入工具，支持 dry-run、显式 apply、选手、武器积分和项目参赛名单导入，并通过临时组织真库验收。
 - 阶段 59：公开页新增动态 metadata 和 iframe 参数，嵌入页支持主题/高度参数，排名管理页展示公开页复制入口，并扩展公开页真库浏览器验收。
+- 阶段 60：新增部署前检查清单、生产环境变量模板和 `predeploy:verify`，明确 migration 顺序、Vercel/Supabase 环境变量、Python Ranking Engine 风险和生产验收边界。
 
 当前阶段边界：
 
@@ -209,9 +211,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 后续阶段
 
-部署前主线：
-
-- 阶段 60：部署前运行形态收口。确认 Python Ranking Engine 部署方式、Vercel/Supabase 环境变量、migration 执行顺序和生产验收 checklist。
+部署前主线已完成，部署操作请按 `docs/deployment-checklist.md` 执行。
 
 ## 交互业务优化项（部署后推进）
 
@@ -308,6 +308,9 @@ npm run browser:verify
 # 本地一键验收（会自动执行 check、build、临时 start 和 smoke）
 npm run verify
 
+# 部署前本地收口验收（不访问真库）
+npm run predeploy:verify
+
 # ESLint 代码检查
 npm run lint
 
@@ -336,6 +339,8 @@ DATABASE_URL="postgresql://..."
 ```
 
 **注意**：排名计算功能依赖本机 `python3`；若环境中 Python 命令不是 `python3`（如 Windows 下为 `python`），需修改 `lib/ranking-engine/adapter.ts` 中的 spawn 命令。
+
+部署前请查看 `docs/deployment-checklist.md`，并参考 `.env.production.example` 配置生产环境变量。`DATABASE_URL` 仅用于本地执行 DDL 和 `npm run db:verify`，默认不需要配置到 Vercel。
 
 ## 关键目录
 

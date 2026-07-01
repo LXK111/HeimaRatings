@@ -22,6 +22,7 @@
     "db:verify": "node scripts/verify_database_constraints.mjs",
     "browser:verify": "node scripts/verify_browser_pages.mjs",
     "auth:browser:verify": "node scripts/verify_management_auth_browser_e2e.mjs",
+    "predeploy:verify": "node scripts/verify_predeploy.mjs",
     "verify": "node scripts/verify_local.mjs"
   },
   "dependencies": {

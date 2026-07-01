@@ -75,6 +75,7 @@
 | v6.9 | 2026-07-01 | Codex | 执行阶段 55，新增签表视图浏览器验收 |
 | v7.0 | 2026-07-01 | Codex | 执行阶段 58，新增真实数据导入/初始化工具 |
 | v7.1 | 2026-07-01 | Codex | 执行阶段 59，补充公开页和嵌入页生产化细节 |
+| v7.2 | 2026-07-01 | Codex | 执行阶段 60，收口部署前运行形态 |
 
 ## 1. 文档目的
 
@@ -2008,3 +2009,33 @@ HeimaRatings/
 方案变化：
 
 - 公开展示从“能访问榜单”推进到“可分享、可嵌入、可被验收”；公开页 CRUD 和项目级公开榜单继续不进入本阶段。
+
+### 阶段 60：部署前运行形态收口
+
+方案细节：
+
+- 阶段 60 的目标是把当前工程从“功能可运行”收口到“部署前可检查、可执行、可追踪”。
+- 新增部署前检查清单，明确 Supabase DDL 顺序、seed 执行、环境变量和验收命令。
+- 新增生产环境变量模板，只包含变量名和说明，不包含真实密钥。
+- 新增 `npm run predeploy:verify`，串联不访问真库的本地收口验收。
+- 明确 Python Ranking Engine 当前仍依赖部署环境中的 `python3`，如果目标平台不支持，应优先独立部署 Ranking Engine 或迁移算法实现。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_predeploy.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run predeploy:verify`。
+- 已新增 `HeimaRatings/.env.production.example`。
+- 已新增 `HeimaRatings/docs/deployment-checklist.md`。
+- 已创建 `HeimaRatings/docs/stage-60.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、部署前主线和验收命令说明。
+
+验证记录：
+
+- `node --check scripts/verify_predeploy.mjs`：通过，脚本语法无错误。
+- `npm run predeploy:verify`：通过，已完成类型检查、Ranking Engine 回归和 Mock 模式完整本地验收。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- 部署前主线从功能阶段推进到运行形态收口；后续阶段 56/57 继续作为部署后交互业务优化项。
