@@ -53,6 +53,7 @@
 | v4.7 | 2026-06-30 | Codex | 执行阶段 34，新增项目级排名闭环 |
 | v4.8 | 2026-06-30 | Codex | 执行阶段 35，新增项目级排名快照展示入口 |
 | v4.9 | 2026-07-01 | Codex | 执行阶段 36，新增签表可视化 |
+| v5.0 | 2026-07-01 | Codex | 执行阶段 37，新增轮空与奇数晋级提示 |
 
 ## 1. 文档目的
 
@@ -1321,3 +1322,33 @@ HeimaRatings/
 方案变化：
 
 - 赛事编排从“列表式比赛记录”推进到“轮次分组签表视图”，后续可继续补轮空落位模型和浏览器自动化验收。
+
+### 阶段 37：轮空与奇数晋级提示
+
+方案细节：
+
+- 阶段 37 的目标是让隐式轮空变为管理端可见状态。
+- 签表视图通过参赛名单识别首轮轮空选手。
+- 当前轮完成后如果胜者数量为奇数，页面提示需要轮空落位。
+- 本阶段不引入 `bracket_slots`，因此不自动创建虚拟轮空比赛。
+- 为避免未配对胜者被静默丢失，奇数胜者时禁止直接生成下一轮。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/components/matches/bracket-board.tsx`，新增首轮轮空和奇数胜者提示。
+- 已更新 `HeimaRatings/components/matches/match-workbench.tsx`，加载当前项目参赛名单并传入签表视图。
+- 已更新 `HeimaRatings/components/matches/match-workbench.tsx`，当前轮胜者数量为奇数时禁用“生成下一轮”。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，晋级时拒绝奇数胜者直接生成下一轮。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，晋级时拒绝奇数胜者直接生成下一轮。
+- 已创建 `HeimaRatings/docs/stage-37.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 轮空从“隐式丢在配对算法里”推进到“签表可见且危险晋级被阻止”，后续可在明确 slot 模型后实现自动轮空落位。

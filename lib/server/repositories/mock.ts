@@ -318,6 +318,9 @@ export class MockRepository implements AppRepository {
     if (winners.length < 2) {
       throw new Error("Tournament event already has a champion");
     }
+    if (winners.length % 2 !== 0) {
+      throw new Error("Odd winner count requires explicit bye placement");
+    }
 
     return appendMatchDrafts(
       buildNextRoundMatches(tournamentId, eventId, event.weaponTypeId, currentRound + 1, winners)

@@ -14,6 +14,7 @@ import type {
   RankingEngineOutput,
   RankingRow,
   RankingSnapshotSummary,
+  TournamentEventEntrySummary,
   TournamentEventSummary,
   WeaponType
 } from "@/lib/domain/types";
@@ -63,6 +64,7 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
   const [player2Name, setPlayer2Name] = useState("");
   const [score1, setScore1] = useState("9");
   const [score2, setScore2] = useState("6");
+  const [entries, setEntries] = useState<TournamentEventEntrySummary[]>([]);
   const [algorithm, setAlgorithm] = useState<RankingAlgorithm>("hybrid");
   const [weaponTypeId, setWeaponTypeId] = useState(enabledWeapons[0]?.id ?? "");
   const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
@@ -113,6 +115,28 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
 
     void loadMatches();
   }, [tournamentId]);
+
+  useEffect(() => {
+    async function loadEntries() {
+      if (!selectedEvent) {
+        setEntries([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/tournaments/${tournamentId}/events/${selectedEvent.id}/entries`);
+        const payload = (await response.json()) as ApiResponse<TournamentEventEntrySummary[]>;
+        if (!response.ok || "error" in payload) {
+          throw new Error("error" in payload ? payload.error.message : "参赛名单加载失败");
+        }
+        setEntries(payload.data);
+      } catch {
+        setEntries([]);
+      }
+    }
+
+    void loadEntries();
+  }, [selectedEvent?.id, tournamentId]);
 
   useEffect(() => {
     setPlayer1Name(selectablePlayers[0]?.name ?? "");
@@ -465,6 +489,7 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
       </section>
 
       <BracketBoard
+        entries={entries}
         event={selectedEvent}
         matches={selectedEventMatches}
         weapon={eventWeapon}
@@ -515,6 +540,9 @@ function getAdvanceDisabledReason(
   }
   if (currentRoundMatches.some((match) => !match.winnerId || match.score1 === match.score2)) {
     return "当前轮尚未全部完成";
+  }
+  if (currentRoundMatches.length > 1 && currentRoundMatches.length % 2 !== 0) {
+    return "当前轮胜者为奇数，需要轮空落位模型";
   }
 
   return "";

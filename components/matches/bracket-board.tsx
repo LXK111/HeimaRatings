@@ -2,17 +2,24 @@
 
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import type { MatchSummary, TournamentEventSummary, WeaponType } from "@/lib/domain/types";
+import type {
+  MatchSummary,
+  TournamentEventEntrySummary,
+  TournamentEventSummary,
+  WeaponType
+} from "@/lib/domain/types";
 
 interface BracketBoardProps {
+  entries: TournamentEventEntrySummary[];
   event?: TournamentEventSummary;
   matches: MatchSummary[];
   weapon?: WeaponType;
 }
 
-export function BracketBoard({ event, matches, weapon }: BracketBoardProps) {
+export function BracketBoard({ entries, event, matches, weapon }: BracketBoardProps) {
   const rounds = groupMatchesByRound(matches);
   const status = getBracketStatus(event, matches);
+  const byeNotices = getByeNotices(entries, matches);
 
   return (
     <Panel
@@ -32,22 +39,31 @@ export function BracketBoard({ event, matches, weapon }: BracketBoardProps) {
           当前项目还没有对阵。可先在比赛项目页生成签表，或在比赛录入区手动添加比赛。
         </div>
       ) : (
-        <div className="overflow-x-auto pb-2">
-          <div
-            className="grid min-w-[760px] gap-4"
-            style={{ gridTemplateColumns: `repeat(${rounds.length}, minmax(220px, 1fr))` }}
-          >
-            {rounds.map((round) => (
-              <section className="grid content-start gap-3" key={round.round}>
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-black text-stone-50">第 {round.round} 轮</h3>
-                  <StatusBadge label={`${round.matches.length} 场`} tone="muted" />
-                </div>
-                {round.matches.map((match) => (
-                  <BracketMatchCard key={match.id} match={match} />
-                ))}
-              </section>
-            ))}
+        <div className="grid gap-4">
+          {byeNotices.length > 0 ? (
+            <div className="grid gap-2 rounded-2xl border border-brass-500/25 bg-brass-500/10 p-4 text-sm text-brass-100">
+              {byeNotices.map((notice) => (
+                <p key={notice}>{notice}</p>
+              ))}
+            </div>
+          ) : null}
+          <div className="overflow-x-auto pb-2">
+            <div
+              className="grid min-w-[760px] gap-4"
+              style={{ gridTemplateColumns: `repeat(${rounds.length}, minmax(220px, 1fr))` }}
+            >
+              {rounds.map((round) => (
+                <section className="grid content-start gap-3" key={round.round}>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-black text-stone-50">第 {round.round} 轮</h3>
+                    <StatusBadge label={`${round.matches.length} 场`} tone="muted" />
+                  </div>
+                  {round.matches.map((match) => (
+                    <BracketMatchCard key={match.id} match={match} />
+                  ))}
+                </section>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -134,4 +150,34 @@ function getBracketStatus(event: TournamentEventSummary | undefined, matches: Ma
   }
 
   return { label: "当前轮进行中", tone: "muted" as const };
+}
+
+function getByeNotices(entries: TournamentEventEntrySummary[], matches: MatchSummary[]) {
+  const notices: string[] = [];
+  const registeredEntries = entries.filter((entry) => entry.status === "registered");
+  const firstRoundMatches = matches.filter((match) => match.round === 1);
+  if (registeredEntries.length > 0 && firstRoundMatches.length > 0) {
+    const firstRoundPlayerIds = new Set(
+      firstRoundMatches.flatMap((match) => [match.player1Id, match.player2Id]).filter(Boolean)
+    );
+    const initialByes = registeredEntries.filter((entry) => !firstRoundPlayerIds.has(entry.playerId));
+    if (initialByes.length > 0) {
+      notices.push(`首轮轮空：${initialByes.map((entry) => entry.playerName).join("、")}。`);
+    }
+  }
+
+  const latestRound = matches.length > 0 ? Math.max(...matches.map((match) => match.round)) : undefined;
+  const latestMatches = latestRound
+    ? matches.filter((match) => match.round === latestRound)
+    : [];
+  const completedWinners = latestMatches.filter((match) => match.winnerId && match.score1 !== match.score2);
+  if (
+    latestMatches.length > 1 &&
+    completedWinners.length === latestMatches.length &&
+    completedWinners.length % 2 !== 0
+  ) {
+    notices.push("当前轮胜者数量为奇数，下一轮需要轮空落位；本阶段先提示，不自动创建虚拟轮空。");
+  }
+
+  return notices;
 }

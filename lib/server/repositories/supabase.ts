@@ -794,6 +794,9 @@ export class SupabaseRepository implements AppRepository {
     if (currentRoundMatches.length < 2) {
       throw new Error("Tournament event already has a champion");
     }
+    if (currentRoundMatches.length % 2 !== 0) {
+      throw new Error("Odd winner count requires explicit bye placement");
+    }
 
     const inserted = await this.query<MatchRow[]>(
       (await this.getClient())
