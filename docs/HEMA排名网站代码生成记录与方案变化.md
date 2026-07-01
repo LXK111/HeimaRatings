@@ -73,6 +73,7 @@
 | v6.7 | 2026-07-01 | Codex | 执行阶段 54，新增管理端签表视图读取 bracket_slots |
 | v6.8 | 2026-07-01 | Codex | 整理部署前待执行阶段和部署后交互业务优化项 |
 | v6.9 | 2026-07-01 | Codex | 执行阶段 55，新增签表视图浏览器验收 |
+| v7.0 | 2026-07-01 | Codex | 执行阶段 58，新增真实数据导入/初始化工具 |
 
 ## 1. 文档目的
 
@@ -1938,3 +1939,40 @@ HeimaRatings/
 方案变化：
 
 - 签表验收从 API/数据库层推进到真实浏览器页面层；slot 编辑和完整签表体验优化继续作为部署后交互业务优化项。
+
+### 阶段 58：真实数据导入/初始化工具
+
+方案细节：
+
+- 阶段 58 的目标是让部署前真实基础数据可以被可控、可审计、可重复地写入 Supabase 真库。
+- 本阶段先做命令行导入工具，不做管理端上传 UI。
+- 导入工具默认 dry-run，只有显式传入 `--apply` 才写库。
+- CSV 目录支持 `players.csv`、`ratings.csv`、`event_entries.csv`。
+- 选手按组织内 `name` 识别，符合数据库唯一约束 `(organization_id, name)`。
+- 武器通过 `weapon_slug` 匹配已存在且启用的武器，不自动创建未知武器。
+- 项目参赛名单支持通过 `event_id` 或 `tournament_name + event_name` 定位比赛项目。
+- 新增临时组织 apply 验收，验证真实写入后清理数据。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/import_seed_data.mjs`。
+- 已新增 `HeimaRatings/scripts/verify_data_import.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run data:import` 和 `npm run data:import:verify`。
+- 已新增 `HeimaRatings/docs/examples/import/players.csv`。
+- 已新增 `HeimaRatings/docs/examples/import/ratings.csv`。
+- 已新增 `HeimaRatings/docs/examples/import/event_entries.csv`。
+- 已创建 `HeimaRatings/docs/stage-58.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、已完成阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/import_seed_data.mjs`：通过，导入脚本语法无错误。
+- `node --check scripts/verify_data_import.mjs`：通过，验收脚本语法无错误。
+- `npm run data:import -- --dir docs/examples/import --organization-slug hema-ratings-demo`：通过，示例 CSV dry-run 不写库。
+- `npm run data:import:verify`：通过，临时组织真实 apply 导入、核对和清理通过。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- 部署前数据初始化从手工 SQL/页面逐条录入推进到可 dry-run、可 apply、可验收的 CSV 导入工具；普通管理端上传 UI 留到后续业务需要明确后再做。

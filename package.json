@@ -17,6 +17,8 @@
     "auth:verify": "node scripts/verify_supabase_auth_rls_e2e.mjs",
     "auth:api:verify": "node scripts/verify_management_auth_api_e2e.mjs",
     "public:verify": "node scripts/verify_public_multi_weapon_e2e.mjs",
+    "data:import": "node scripts/import_seed_data.mjs",
+    "data:import:verify": "node scripts/verify_data_import.mjs",
     "db:verify": "node scripts/verify_database_constraints.mjs",
     "browser:verify": "node scripts/verify_browser_pages.mjs",
     "auth:browser:verify": "node scripts/verify_management_auth_browser_e2e.mjs",

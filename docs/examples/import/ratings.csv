@@ -1,0 +1,3 @@
+player_name,weapon_slug,initial_rating,current_rating,rd,sigma,matches_count,wins_count,losses_count,draws_count
+沈砺,longsword,1500,1500,350,0.2,0,0,0,0
+韩越,longsword,1500,1500,350,0.2,0,0,0,0
