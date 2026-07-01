@@ -2,10 +2,17 @@ import { AppShell } from "@/components/layout/app-shell";
 import { RankingResultTable } from "@/components/matches/ranking-result-table";
 import { EventRankingWorkbench } from "@/components/rankings/event-ranking-workbench";
 import { RankingBoard } from "@/components/rankings/ranking-board";
+import { ActionLink } from "@/components/ui/action-link";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import type { PublicRankingPageSummary } from "@/lib/domain/types";
+import type {
+  PlayerSummary,
+  PublicRankingPageSummary,
+  TournamentEventSummary,
+  WeaponType
+} from "@/lib/domain/types";
 import { getRequestRepository } from "@/lib/server/repositories/factory";
+import type { TournamentEventRankingSnapshot } from "@/lib/server/repositories/types";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +24,27 @@ interface RankingsPageProps {
 export default async function RankingsPage({ params }: RankingsPageProps) {
   const { id } = await params;
   const repository = await getRequestRepository(await getServerRepositoryContext());
-  const [publicPages, events, players, weapons, eventSnapshots] = await Promise.all([
-    repository.listPublicRankingPages(),
-    repository.listTournamentEvents(id),
-    repository.listPlayers(),
-    repository.listWeapons(),
-    repository.listTournamentEventRankingSnapshots(id)
-  ]);
+
+  let publicPages: PublicRankingPageSummary[];
+  let events: TournamentEventSummary[];
+  let players: PlayerSummary[];
+  let weapons: WeaponType[];
+  let eventSnapshots: TournamentEventRankingSnapshot[];
+  try {
+    [publicPages, events, players, weapons, eventSnapshots] = await Promise.all([
+      repository.listPublicRankingPages(),
+      repository.listTournamentEvents(id),
+      repository.listPlayers(),
+      repository.listWeapons(),
+      repository.listTournamentEventRankingSnapshots(id)
+    ]);
+  } catch (error) {
+    if (isMissingCurrentOrganizationTournament(error)) {
+      return <MissingTournamentPage />;
+    }
+    throw error;
+  }
+
   const page = publicPages[0]
     ? await repository.getPublicRankingPage(publicPages[0].pageId)
     : await repository.getPublicRankingPage("demo");
@@ -98,6 +119,26 @@ export default async function RankingsPage({ params }: RankingsPageProps) {
       </div>
     </AppShell>
   );
+}
+
+function MissingTournamentPage() {
+  return (
+    <AppShell
+      eyebrow="Rankings"
+      title="排名榜不可用"
+      description="当前组织下找不到这个赛事，可能是测试数据已清理，或旧链接仍指向其他组织的赛事。"
+    >
+      <Panel action={<ActionLink href="/tournaments">返回赛事列表</ActionLink>} title="未找到赛事">
+        <p className="text-sm leading-7 text-stone-400">
+          请从赛事列表选择当前组织里的赛事，再进入比赛项目、比赛录入或排名页面。
+        </p>
+      </Panel>
+    </AppShell>
+  );
+}
+
+function isMissingCurrentOrganizationTournament(error: unknown) {
+  return error instanceof Error && error.message === "Tournament not found in current organization";
 }
 
 function PublicPagePublishPanel({ publicPages }: { publicPages: PublicRankingPageSummary[] }) {

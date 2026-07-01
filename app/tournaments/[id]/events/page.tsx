@@ -1,8 +1,14 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { ActionLink } from "@/components/ui/action-link";
 import { DataTable } from "@/components/ui/data-table";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import type { TournamentEventEntrySummary } from "@/lib/domain/types";
+import type {
+  PlayerSummary,
+  TournamentEventEntrySummary,
+  TournamentEventSummary,
+  WeaponType
+} from "@/lib/domain/types";
 import { generateTournamentEventBracketAction } from "@/lib/server/bracket-actions";
 import {
   createTournamentEventEntryAction,
@@ -21,11 +27,23 @@ interface TournamentEventsPageProps {
 export default async function TournamentEventsPage({ params }: TournamentEventsPageProps) {
   const { id } = await params;
   const repository = await getRequestRepository(await getServerRepositoryContext());
-  const [tournamentEvents, weaponTypes, players] = await Promise.all([
-    repository.listTournamentEvents(id),
-    repository.listWeapons(),
-    repository.listPlayers()
-  ]);
+
+  let tournamentEvents: TournamentEventSummary[];
+  let weaponTypes: WeaponType[];
+  let players: PlayerSummary[];
+  try {
+    [tournamentEvents, weaponTypes, players] = await Promise.all([
+      repository.listTournamentEvents(id),
+      repository.listWeapons(),
+      repository.listPlayers()
+    ]);
+  } catch (error) {
+    if (isMissingCurrentOrganizationTournament(error)) {
+      return <MissingTournamentPage />;
+    }
+    throw error;
+  }
+
   const entriesByEvent: Record<string, TournamentEventEntrySummary[]> = Object.fromEntries(
     await Promise.all(
       tournamentEvents.map(async (event) => [
@@ -125,6 +143,26 @@ export default async function TournamentEventsPage({ params }: TournamentEventsP
       </Panel>
     </AppShell>
   );
+}
+
+function MissingTournamentPage() {
+  return (
+    <AppShell
+      eyebrow="Tournament Events"
+      title="比赛项目不可用"
+      description="当前组织下找不到这个赛事，可能是测试数据已清理，或旧链接仍指向其他组织的赛事。"
+    >
+      <Panel action={<ActionLink href="/tournaments">返回赛事列表</ActionLink>} title="未找到赛事">
+        <p className="text-sm leading-7 text-stone-400">
+          请从赛事列表选择当前组织里的赛事，再进入比赛项目、比赛录入或排名页面。
+        </p>
+      </Panel>
+    </AppShell>
+  );
+}
+
+function isMissingCurrentOrganizationTournament(error: unknown) {
+  return error instanceof Error && error.message === "Tournament not found in current organization";
 }
 
 function BracketGenerateForm({

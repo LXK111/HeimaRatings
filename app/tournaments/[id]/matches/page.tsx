@@ -1,5 +1,13 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { MatchWorkbench } from "@/components/matches/match-workbench";
+import { ActionLink } from "@/components/ui/action-link";
+import { Panel } from "@/components/ui/panel";
+import type {
+  PlayerSummary,
+  PublicRankingPageSummary,
+  TournamentEventSummary,
+  WeaponType
+} from "@/lib/domain/types";
 import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
@@ -12,12 +20,24 @@ interface MatchesPageProps {
 export default async function MatchesPage({ params }: MatchesPageProps) {
   const { id } = await params;
   const repository = await getRequestRepository(await getServerRepositoryContext());
-  const [weapons, players, events, publicPages] = await Promise.all([
-    repository.listWeapons(),
-    repository.listPlayers(),
-    repository.listTournamentEvents(id),
-    repository.listPublicRankingPages()
-  ]);
+
+  let weapons: WeaponType[];
+  let players: PlayerSummary[];
+  let events: TournamentEventSummary[];
+  let publicPages: PublicRankingPageSummary[];
+  try {
+    [weapons, players, events, publicPages] = await Promise.all([
+      repository.listWeapons(),
+      repository.listPlayers(),
+      repository.listTournamentEvents(id),
+      repository.listPublicRankingPages()
+    ]);
+  } catch (error) {
+    if (isMissingCurrentOrganizationTournament(error)) {
+      return <MissingTournamentPage />;
+    }
+    throw error;
+  }
 
   return (
     <AppShell
@@ -34,4 +54,24 @@ export default async function MatchesPage({ params }: MatchesPageProps) {
       />
     </AppShell>
   );
+}
+
+function MissingTournamentPage() {
+  return (
+    <AppShell
+      eyebrow="Match Desk"
+      title="比赛录入不可用"
+      description="当前组织下找不到这个赛事，可能是测试数据已清理，或旧链接仍指向其他组织的赛事。"
+    >
+      <Panel action={<ActionLink href="/tournaments">返回赛事列表</ActionLink>} title="未找到赛事">
+        <p className="text-sm leading-7 text-stone-400">
+          请从赛事列表选择当前组织里的赛事，再进入比赛项目、比赛录入或排名页面。
+        </p>
+      </Panel>
+    </AppShell>
+  );
+}
+
+function isMissingCurrentOrganizationTournament(error: unknown) {
+  return error instanceof Error && error.message === "Tournament not found in current organization";
 }
