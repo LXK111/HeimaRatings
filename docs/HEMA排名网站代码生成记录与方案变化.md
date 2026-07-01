@@ -54,6 +54,7 @@
 | v4.8 | 2026-06-30 | Codex | 执行阶段 35，新增项目级排名快照展示入口 |
 | v4.9 | 2026-07-01 | Codex | 执行阶段 36，新增签表可视化 |
 | v5.0 | 2026-07-01 | Codex | 执行阶段 37，新增轮空与奇数晋级提示 |
+| v5.1 | 2026-07-01 | Codex | 执行阶段 38，新增签表/项目排名真库验收脚本 |
 
 ## 1. 文档目的
 
@@ -1352,3 +1353,34 @@ HeimaRatings/
 方案变化：
 
 - 轮空从“隐式丢在配对算法里”推进到“签表可见且危险晋级被阻止”，后续可在明确 slot 模型后实现自动轮空落位。
+
+### 阶段 38：签表/项目排名真库验收脚本
+
+方案细节：
+
+- 阶段 38 的目标是把阶段 31 到阶段 37 的签表、晋级和项目级排名能力纳入脚本化验收。
+- 数据库层重点验证组织一致性，而不是重复验证 UI 行为。
+- `matches` 必须拒绝跨组织赛事、项目、武器和选手组合。
+- 带 `event_id` 的 `ranking_snapshots` 必须拒绝跨组织项目绑定。
+- `ranking_snapshot_items` 必须拒绝把其他组织选手挂入当前组织快照。
+- 管理端 API 验收扩展到项目参赛名单读取、viewer 签表生成拒绝和 editor 项目级排名快照写入。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/database/validations/202607010001_verify_bracket_ranking_integrity.sql`。
+- 已更新 `HeimaRatings/scripts/verify_management_auth_api_e2e.mjs`，扩展管理端 Auth/API 验收范围。
+- 已创建 `HeimaRatings/docs/stage-38.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_management_auth_api_e2e.mjs`：通过，脚本语法无错误。
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- `npm run db:verify`：通过，已在真库连接上执行全部数据库约束验收。
+- `HEIMA_RATINGS_API_VERIFY_BASE_URL=http://localhost:3001 npm run auth:api:verify`：通过，已验证匿名公开访问、管理端登录保护、viewer 只读、viewer 签表写入拒绝、editor 基础写入和 editor 项目级排名快照写入。
+
+方案变化：
+
+- 阶段验收从“功能已能在 Mock 模式通过”推进到“核心签表和项目排名写入路径可被真库约束脚本覆盖”，降低后续真实组织数据串线风险。

@@ -17,15 +17,37 @@ async function main() {
   await expectJsonStatus(config, "/api/weapons", 200, "viewer management read", viewerSession);
   await expectJsonStatus(
     config,
+    entriesPath(config),
+    200,
+    "viewer event entries read",
+    viewerSession
+  );
+  await expectJsonStatus(
+    config,
     "/api/rankings/calculate",
     403,
     "viewer management write",
     viewerSession,
     rankingWriteRequest()
   );
+  await expectJsonStatus(
+    config,
+    bracketGeneratePath(config),
+    403,
+    "viewer bracket generate denied",
+    viewerSession,
+    { method: "POST" }
+  );
 
   const editorSession = await signInWithSsrCookies("editor", config.editorCredentials, config);
   await expectJsonStatus(config, "/api/weapons", 200, "editor management read", editorSession);
+  await expectJsonStatus(
+    config,
+    entriesPath(config),
+    200,
+    "editor event entries read",
+    editorSession
+  );
   const editorWritePayload = await expectJsonStatus(
     config,
     "/api/rankings/calculate",
@@ -37,6 +59,18 @@ async function main() {
 
   if (!editorWritePayload.data?.snapshot?.id) {
     throw new Error("editor management write did not return snapshot.id");
+  }
+  const editorEventRankingPayload = await expectJsonStatus(
+    config,
+    "/api/rankings/calculate",
+    200,
+    "editor event ranking snapshot write",
+    editorSession,
+    eventRankingWriteRequest(config)
+  );
+
+  if (!editorEventRankingPayload.data?.snapshot?.id) {
+    throw new Error("editor event ranking write did not return snapshot.id");
   }
 
   console.log("Management Auth/API E2E verify passed.");
@@ -66,7 +100,10 @@ function readConfig() {
     editorCredentials: {
       email: requireEnv("HEIMA_RATINGS_RLS_EDITOR_EMAIL"),
       password: requireEnv("HEIMA_RATINGS_RLS_EDITOR_PASSWORD")
-    }
+    },
+    tournamentId: process.env.HEIMA_RATINGS_API_VERIFY_TOURNAMENT_ID ?? "demo",
+    eventId: process.env.HEIMA_RATINGS_API_VERIFY_EVENT_ID ?? "event-longsword-open",
+    weaponTypeId: process.env.HEIMA_RATINGS_API_VERIFY_WEAPON_TYPE_ID ?? "weapon-longsword"
   };
 }
 
@@ -150,6 +187,28 @@ function rankingWriteRequest() {
       persistSnapshot: true
     })
   };
+}
+
+function eventRankingWriteRequest(config) {
+  return {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      algorithm: "hybrid",
+      weaponTypeId: config.weaponTypeId,
+      tournamentId: config.tournamentId,
+      eventId: config.eventId,
+      persistSnapshot: true
+    })
+  };
+}
+
+function entriesPath(config) {
+  return `/api/tournaments/${config.tournamentId}/events/${config.eventId}/entries`;
+}
+
+function bracketGeneratePath(config) {
+  return `/api/tournaments/${config.tournamentId}/events/${config.eventId}/bracket/generate`;
 }
 
 function requireEnv(key) {
