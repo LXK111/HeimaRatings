@@ -206,14 +206,19 @@ export class MockRepository implements AppRepository {
   }
 
   async createTournamentEventEntry(
-    _tournamentId: string,
+    tournamentId: string,
     eventId: string,
     input: CreateTournamentEventEntryInput
   ) {
+    const event = listTournamentEvents(tournamentId).find((item) => item.id === eventId);
+    if (!event) {
+      throw new Error("Tournament event not found");
+    }
     const player = listPlayers().find((item) => item.id === input.playerId);
     if (!player) {
       throw new Error("Player not found");
     }
+    ensureMockPlayerWeaponRating(player, event.weaponTypeId);
 
     return {
       id: `entry-mock-${Date.now()}`,
@@ -424,6 +429,24 @@ type MockAdvancementEntrant = {
   name: string;
   sourceMatchId?: string;
 };
+
+function ensureMockPlayerWeaponRating(
+  player: ReturnType<typeof listPlayers>[number],
+  weaponTypeId: string
+) {
+  if (player.weaponRatings.some((rating) => rating.weaponTypeId === weaponTypeId)) {
+    return;
+  }
+
+  const nextRank = listPlayers()
+    .flatMap((item) => item.weaponRatings)
+    .filter((rating) => rating.weaponTypeId === weaponTypeId).length + 1;
+  player.weaponRatings.push({
+    weaponTypeId,
+    rating: 1500,
+    rank: nextRank
+  });
+}
 
 function compareEntriesBySeed(a: MockBracketEntry, b: MockBracketEntry) {
   const seedA = a.seed ?? Number.MAX_SAFE_INTEGER;

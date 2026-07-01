@@ -515,13 +515,16 @@ export class SupabaseRepository implements AppRepository {
     const resolvedEventId = resolveId(eventId);
     const normalized = normalizeTournamentEventEntryInput(input);
     await this.ensureEventInCurrentTournament(resolvedTournamentId, resolvedEventId, "createTournamentEventEntry.event");
-    await this.ensurePlayerInOrganization(resolveId(normalized.playerId), "createTournamentEventEntry.player");
+    const playerId = resolveId(normalized.playerId);
+    await this.ensurePlayerInOrganization(playerId, "createTournamentEventEntry.player");
+    const event = await this.getTournamentEventRow(resolvedTournamentId, resolvedEventId, "createTournamentEventEntry.eventWeapon");
+    await this.ensurePlayerWeaponRating(playerId, event.weapon_type_id);
     const inserted = await this.querySingle<TournamentEventEntryRow>(
       (await this.getClient())
         .from("tournament_event_entries")
         .insert({
           event_id: resolvedEventId,
-          player_id: resolveId(normalized.playerId),
+          player_id: playerId,
           seed: normalized.seed,
           status: "registered"
         })
@@ -1409,6 +1412,43 @@ export class SupabaseRepository implements AppRepository {
     if (!player) {
       throw new Error("Player not found in current organization");
     }
+  }
+
+  private async getTournamentEventRow(tournamentId: string, eventId: string, operation: string) {
+    await this.ensureTournamentInOrganization(tournamentId, `${operation}.tournament`);
+    const event = await this.querySingle<TournamentEventRow>(
+      (await this.getClient())
+        .from("tournament_events")
+        .select("*")
+        .eq("id", eventId)
+        .eq("tournament_id", tournamentId)
+        .maybeSingle(),
+      operation
+    );
+
+    if (!event) {
+      throw new Error("Tournament event not found in current tournament");
+    }
+
+    return event;
+  }
+
+  private async ensurePlayerWeaponRating(playerId: string, weaponTypeId: string) {
+    await this.query<null>(
+      (await this.getClient())
+        .from("player_weapon_ratings")
+        .upsert(
+          {
+            player_id: playerId,
+            weapon_type_id: weaponTypeId
+          },
+          {
+            onConflict: "player_id,weapon_type_id",
+            ignoreDuplicates: true
+          }
+        ),
+      "ensurePlayerWeaponRating"
+    );
   }
 
   private async ensureEventInCurrentTournament(tournamentId: string, eventId: string, operation: string) {
