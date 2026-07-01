@@ -22,8 +22,6 @@ const navigationItems = [
   { href: "/weapons", label: "武器类型", icon: Swords },
   { href: "/players", label: "选手", icon: UsersRound },
   { href: "/tournaments", label: "赛事", icon: Trophy },
-  { href: "/tournaments", label: "比赛项目", icon: ListChecks },
-  { href: "/tournaments", label: "排名榜", icon: BarChart3 },
   { href: "/public/rankings/demo", label: "公开榜单", icon: Globe2 }
 ];
 
@@ -45,6 +43,7 @@ export async function AppShell({
   const repositoryContext = await getServerRepositoryContext({
     authorize: showOrganizationSwitcher
   });
+  const repository = getRepository(repositoryContext);
   const organizationState =
     showOrganizationSwitcher && authUser
       ? await getAuthorizedOrganizationState(repositoryContext, authUser)
@@ -69,8 +68,31 @@ export async function AppShell({
           name: `${membership.organizationName} · ${membership.role}`,
           slug: membership.organizationSlug
         }))
-      : await getRepository(repositoryContext).listOrganizations()
+      : await repository.listOrganizations()
     : [];
+  const tournaments = showOrganizationSwitcher ? await repository.listTournaments() : [];
+  const primaryTournament =
+    tournaments.find((tournament) => tournament.status === "active") ?? tournaments[0];
+  const managementNavigationItems = showOrganizationSwitcher
+    ? [
+        ...navigationItems.slice(0, 4),
+        {
+          href: primaryTournament
+            ? `/tournaments/${primaryTournament.id}/events`
+            : "/tournaments?intent=events",
+          label: "比赛项目",
+          icon: ListChecks
+        },
+        {
+          href: primaryTournament
+            ? `/tournaments/${primaryTournament.id}/rankings`
+            : "/tournaments?intent=rankings",
+          label: "排名榜",
+          icon: BarChart3
+        },
+        navigationItems[4]
+      ]
+    : navigationItems;
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 md:px-8">
@@ -85,7 +107,7 @@ export async function AppShell({
             </p>
           </div>
           <nav aria-label="主导航" className="flex flex-wrap gap-2">
-            {navigationItems.map((item) => (
+            {managementNavigationItems.map((item) => (
               <Link
                 className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-bold text-stone-300 transition hover:border-brass-500/50 hover:bg-brass-500/10 hover:text-brass-400"
                 href={item.href}

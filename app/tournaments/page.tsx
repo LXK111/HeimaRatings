@@ -9,9 +9,16 @@ import { createTournamentAction, updateTournamentAction } from "@/lib/server/tou
 
 export const dynamic = "force-dynamic";
 
-export default async function TournamentsPage() {
+interface TournamentsPageProps {
+  searchParams?: Promise<{
+    intent?: string;
+  }>;
+}
+
+export default async function TournamentsPage({ searchParams }: TournamentsPageProps) {
   const tournaments = await (await getRequestRepository(await getServerRepositoryContext())).listTournaments();
   const primaryTournament = tournaments[0];
+  const intent = (await searchParams)?.intent;
 
   return (
     <AppShell
@@ -19,6 +26,8 @@ export default async function TournamentsPage() {
       title="赛事管理"
       description="一个赛事可以包含多个比赛项目，每个比赛项目绑定一个武器类型。当前页面展示赛事入口和状态。"
     >
+      {intent && tournaments.length === 0 ? <TournamentIntentNotice intent={intent} /> : null}
+
       <Panel eyebrow="Create" title="新增赛事">
         <form action={createTournamentAction} className="grid gap-4 lg:grid-cols-[1.3fr_1fr_0.8fr_0.8fr_1fr_1fr_auto]">
           <label className="grid gap-2 text-sm font-bold text-stone-300">
@@ -128,6 +137,20 @@ export default async function TournamentsPage() {
         />
       </Panel>
     </AppShell>
+  );
+}
+
+function TournamentIntentNotice({ intent }: { intent: string }) {
+  const title = intent === "rankings" ? "排名榜需要先选择赛事" : "比赛项目需要先选择赛事";
+  const description =
+    intent === "rankings"
+      ? "当前组织还没有赛事。请先创建一个赛事，再进入该赛事的排名榜页面。"
+      : "当前组织还没有赛事。请先创建一个赛事，再进入该赛事的比赛项目页面。";
+
+  return (
+    <Panel className="mb-5" title={title}>
+      <p className="text-sm leading-7 text-stone-400">{description}</p>
+    </Panel>
   );
 }
 
