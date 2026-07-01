@@ -58,6 +58,7 @@
 | v5.2 | 2026-07-01 | Codex | 执行阶段 39，新增公开页发布目标选择 |
 | v5.3 | 2026-07-01 | Codex | 执行阶段 40，新增浏览器自动化页面流验收 |
 | v5.4 | 2026-07-01 | Codex | 执行阶段 41，新增 Supabase 登录态浏览器验收 |
+| v5.5 | 2026-07-01 | Codex | 执行阶段 42，新增 viewer 浏览器权限拒绝验收 |
 
 ## 1. 文档目的
 
@@ -1480,3 +1481,32 @@ HeimaRatings/
 方案变化：
 
 - 验收体系从 Mock 浏览器页面流推进到 Supabase Auth 真实浏览器登录流，并修复了公开页误触发管理端鉴权的问题。
+
+### 阶段 42：viewer 浏览器权限拒绝验收
+
+方案细节：
+
+- 阶段 42 的目标是让浏览器验收覆盖“viewer 可读但不可写”的角色边界。
+- viewer 和 editor 使用独立 browser context，避免登录 cookie 串扰。
+- viewer 登录后应能打开管理端只读页面。
+- viewer 在浏览器会话中触发排名快照持久化写入口时必须返回 403。
+- 预期 403 会产生浏览器资源加载 console error，本阶段只对这条预期错误做定向豁免。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/scripts/verify_management_auth_browser_e2e.mjs`，新增 viewer 登录、读取和写拒绝验收。
+- 已创建 `HeimaRatings/docs/stage-42.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_management_auth_browser_e2e.mjs`：通过，脚本语法无错误。
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run browser:verify`：通过，已自动执行 `build`、临时启动生产服务，并验证核心页面。
+- `npm run auth:browser:verify`：通过，已验证匿名管理页重定向、匿名公开页访问、viewer 只读写拒绝、editor 登录和登录后管理页访问。
+
+方案变化：
+
+- Supabase 浏览器验收从“editor 能登录”推进到“viewer/editor 角色边界可验证”，后续可以继续补真实表单提交和自动轮空落位。

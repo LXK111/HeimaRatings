@@ -78,6 +78,8 @@ function readConfig() {
   }
 
   return {
+    viewerEmail: requireEnv("HEIMA_RATINGS_RLS_VIEWER_EMAIL"),
+    viewerPassword: requireEnv("HEIMA_RATINGS_RLS_VIEWER_PASSWORD"),
     editorEmail: requireEnv("HEIMA_RATINGS_RLS_EDITOR_EMAIL"),
     editorPassword: requireEnv("HEIMA_RATINGS_RLS_EDITOR_PASSWORD")
   };
@@ -90,22 +92,23 @@ async function verifyBrowserAuthFlow(url, config) {
   });
   const pageErrors = [];
   const consoleErrors = [];
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
-  const page = await context.newPage();
-
-  page.on("pageerror", (error) => {
-    pageErrors.push(error.message);
-  });
-  page.on("console", (message) => {
-    if (message.type() === "error") {
-      consoleErrors.push(message.text());
-    }
-  });
 
   try {
-    await verifyAnonymousManagementRedirect(page, url);
-    await verifyAnonymousPublicPage(page, url);
-    await verifyEditorLogin(page, url, config);
+    const anonymousContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+    const anonymousPage = await newTrackedPage(anonymousContext, pageErrors, consoleErrors);
+    await verifyAnonymousManagementRedirect(anonymousPage, url);
+    await verifyAnonymousPublicPage(anonymousPage, url);
+    await anonymousContext.close();
+
+    const viewerContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+    const viewerPage = await newTrackedPage(viewerContext, pageErrors, consoleErrors);
+    await verifyViewerReadOnlyAccess(viewerPage, url, config);
+    await viewerContext.close();
+
+    const editorContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+    const editorPage = await newTrackedPage(editorContext, pageErrors, consoleErrors);
+    await verifyEditorLogin(editorPage, url, config);
+    await editorContext.close();
 
     if (pageErrors.length > 0) {
       throw new Error(`Browser page errors:\n${pageErrors.join("\n")}`);
@@ -116,6 +119,23 @@ async function verifyBrowserAuthFlow(url, config) {
   } finally {
     await browser.close();
   }
+}
+
+async function newTrackedPage(context, pageErrors, consoleErrors) {
+  const page = await context.newPage();
+  page.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      const text = message.text();
+      if (!isExpectedBrowserConsoleError(text)) {
+        consoleErrors.push(text);
+      }
+    }
+  });
+
+  return page;
 }
 
 async function verifyAnonymousManagementRedirect(page, url) {
@@ -161,6 +181,39 @@ async function verifyEditorLogin(page, url, config) {
   await expectText(page, "比赛录入", "editor matches page");
   await page.getByLabel("发布目标").waitFor({ state: "visible", timeout: 5000 });
   console.log("editor browser login: ok");
+}
+
+async function verifyViewerReadOnlyAccess(page, url, config) {
+  await page.goto(new URL("/login?next=/weapons", url).toString(), { waitUntil: "networkidle" });
+  await page.getByLabel("邮箱").fill(config.viewerEmail);
+  await page.getByLabel("密码").fill(config.viewerPassword);
+  await Promise.all([
+    page.waitForURL("**/weapons", { timeout: 15000 }),
+    page.getByRole("button", { name: "登录" }).click()
+  ]);
+  await page.waitForLoadState("networkidle");
+  await expectText(page, "武器类型管理", "viewer login weapons");
+  await expectText(page, "武器积分池", "viewer login weapons");
+
+  const status = await page.evaluate(async () => {
+    const response = await fetch("/api/rankings/calculate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        algorithm: "hybrid",
+        weaponTypeId: "weapon-longsword",
+        tournamentId: "demo",
+        persistSnapshot: true
+      })
+    });
+
+    return response.status;
+  });
+  if (status !== 403) {
+    throw new Error(`viewer ranking snapshot write should be denied with HTTP 403, got ${status}`);
+  }
+
+  console.log("viewer browser read-only access: ok");
 }
 
 async function expectText(page, text, label) {
@@ -286,6 +339,10 @@ function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function isExpectedBrowserConsoleError(text) {
+  return text.includes("Failed to load resource") && text.includes("403 (Forbidden)");
 }
 
 main().catch((error) => {
