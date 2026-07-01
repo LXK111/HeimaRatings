@@ -7,12 +7,6 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
-const nextSteps = [
-  "阶段 1：落地 Supabase 数据模型，加入 weapon_types 与 player_weapon_ratings",
-  "阶段 2：扩展 Web UI 页面，支持武器类型、赛事项目和排名切换",
-  "阶段 3：接入 API 与 Ranking Engine，调用四种 Python 算法"
-];
-
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
@@ -75,7 +69,7 @@ export default async function Home() {
         />
       </section>
 
-      <section className="grid gap-6 pb-8 lg:grid-cols-[1.15fr_0.85fr]">
+      <section className="grid gap-6 pb-8">
         <Panel
           action={<ActionLink href="/weapons">管理武器</ActionLink>}
           className="bg-iron-900/70"
@@ -101,23 +95,6 @@ export default async function Home() {
               </div>
             ))}
           </div>
-        </Panel>
-
-        <Panel
-          action={<StatusBadge label="Repository" tone="green" />}
-          eyebrow="Roadmap"
-          title="下一步执行"
-        >
-          <ol className="mt-6 space-y-4">
-            {nextSteps.map((step, index) => (
-              <li className="flex gap-4" key={step}>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brass-500 text-sm font-black text-iron-950">
-                  {index + 1}
-                </span>
-                <span className="pt-1 text-sm leading-6 text-stone-300">{step}</span>
-              </li>
-            ))}
-          </ol>
         </Panel>
       </section>
 
