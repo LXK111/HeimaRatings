@@ -4,6 +4,7 @@ import { EventRankingWorkbench } from "@/components/rankings/event-ranking-workb
 import { RankingBoard } from "@/components/rankings/ranking-board";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import type { PublicRankingPageSummary } from "@/lib/domain/types";
 import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
@@ -16,13 +17,16 @@ interface RankingsPageProps {
 export default async function RankingsPage({ params }: RankingsPageProps) {
   const { id } = await params;
   const repository = await getRequestRepository(await getServerRepositoryContext());
-  const [page, events, players, weapons, eventSnapshots] = await Promise.all([
-    repository.getPublicRankingPage("demo"),
+  const [publicPages, events, players, weapons, eventSnapshots] = await Promise.all([
+    repository.listPublicRankingPages(),
     repository.listTournamentEvents(id),
     repository.listPlayers(),
     repository.listWeapons(),
     repository.listTournamentEventRankingSnapshots(id)
   ]);
+  const page = publicPages[0]
+    ? await repository.getPublicRankingPage(publicPages[0].pageId)
+    : await repository.getPublicRankingPage("demo");
   const enabledWeapons = page?.weapons.filter((weapon) => weapon.enabled) ?? [];
 
   return (
@@ -79,6 +83,8 @@ export default async function RankingsPage({ params }: RankingsPageProps) {
           ) : null}
         </section>
 
+        <PublicPagePublishPanel publicPages={publicPages} />
+
         {enabledWeapons.map((weapon) => (
           <Panel key={weapon.id}>
             <RankingBoard weapon={weapon} rows={page?.rankingsByWeapon[weapon.id] ?? []} />
@@ -91,5 +97,65 @@ export default async function RankingsPage({ params }: RankingsPageProps) {
         ) : null}
       </div>
     </AppShell>
+  );
+}
+
+function PublicPagePublishPanel({ publicPages }: { publicPages: PublicRankingPageSummary[] }) {
+  return (
+    <section className="grid gap-4">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.32em] text-brass-400">
+          Public Pages
+        </p>
+        <h2 className="mt-2 text-2xl font-black text-stone-50">公开页发布入口</h2>
+      </div>
+      {publicPages.length > 0 ? (
+        <div className="grid gap-4">
+          {publicPages.map((page) => {
+            const publicUrl = `/public/rankings/${page.pageId}`;
+            const embedUrl = `/embed/rankings/${page.pageId}?theme=${page.theme}&height=640`;
+            const iframeCode = `<iframe src="${embedUrl}" title="${page.title}" width="100%" height="640" style="border:0;border-radius:16px;"></iframe>`;
+
+            return (
+              <Panel
+                action={<StatusBadge label={page.enabled ? "已启用" : "已关闭"} tone={page.enabled ? "green" : "muted"} />}
+                key={page.pageId}
+                title={page.title}
+              >
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-stone-500">
+                      Public URL
+                    </p>
+                    <p className="mt-2 break-all rounded-2xl border border-white/10 bg-iron-950/60 p-3 text-sm font-semibold text-stone-200">
+                      {publicUrl}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-stone-500">
+                      Embed Code
+                    </p>
+                    <pre className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-iron-950/60 p-3 text-xs font-semibold text-brass-100">
+                      <code>{iframeCode}</code>
+                    </pre>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <StatusBadge label={`pageId: ${page.pageId}`} tone="muted" />
+                  <StatusBadge label={`theme: ${page.theme}`} tone="brass" />
+                  {page.updatedAt ? (
+                    <StatusBadge label={`更新于 ${new Date(page.updatedAt).toLocaleString()}`} tone="green" />
+                  ) : null}
+                </div>
+              </Panel>
+            );
+          })}
+        </div>
+      ) : (
+        <Panel title="暂无公开页">
+          <p className="text-sm text-stone-400">当前组织还没有可发布的公开页。</p>
+        </Panel>
+      )}
+    </section>
   );
 }

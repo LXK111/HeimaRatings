@@ -1,15 +1,39 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { RankingBoard } from "@/components/rankings/ranking-board";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import type { PublicRankingPagePayload, WeaponType } from "@/lib/domain/types";
+import type { PublicPageTheme, PublicRankingPagePayload, WeaponType } from "@/lib/domain/types";
 import { getRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
 
 interface PublicRankingPageProps {
   params: Promise<{ pageId: string }>;
-  searchParams: Promise<{ weapon?: string }>;
+  searchParams: Promise<{ height?: string; theme?: string; weapon?: string }>;
+}
+
+export async function generateMetadata({ params }: Pick<PublicRankingPageProps, "params">): Promise<Metadata> {
+  const { pageId } = await params;
+  const repository = getRepository(await getServerRepositoryContext({ authorize: false }));
+  const page = await repository.getPublicRankingPage(pageId);
+  if (!page || !page.enabled) {
+    return {
+      title: "公开榜单不可用 | HEMA Ratings",
+      description: "该 HEMA Ratings 公开榜单不存在或已关闭。"
+    };
+  }
+
+  const description = `${page.title} 的公开 HEMA 排名榜，支持按武器查看最新发布快照。`;
+  return {
+    title: `${page.title} | HEMA Ratings`,
+    description,
+    openGraph: {
+      title: `${page.title} | HEMA Ratings`,
+      description,
+      type: "website"
+    }
+  };
 }
 
 export default async function PublicRankingPage({ params, searchParams }: PublicRankingPageProps) {
@@ -36,9 +60,19 @@ export default async function PublicRankingPage({ params, searchParams }: Public
   }
 
   const selectedWeapon = resolveWeapon(page, query.weapon);
+  const embedTheme = resolveTheme(query.theme, page.theme);
+  const embedHeight = resolveEmbedHeight(query.height);
   const rows = page.rankingsByWeapon[selectedWeapon.id] ?? [];
-  const selectedEmbedUrl = `${page.embedUrl}?weapon=${selectedWeapon.id}`;
-  const selectedIframeCode = `<iframe src="${selectedEmbedUrl}" title="${page.title} - ${selectedWeapon.name}" width="100%" height="640" style="border:0;border-radius:24px;"></iframe>`;
+  const selectedEmbedUrl = buildEmbedUrl(page.embedUrl, {
+    height: embedHeight,
+    theme: embedTheme,
+    weapon: selectedWeapon.id
+  });
+  const selectedIframeCode = buildIframeCode({
+    height: embedHeight,
+    src: selectedEmbedUrl,
+    title: `${page.title} - ${selectedWeapon.name}`
+  });
 
   return (
     <AppShell
@@ -84,6 +118,37 @@ export default async function PublicRankingPage({ params, searchParams }: Public
         </div>
       </Panel>
 
+      <Panel className="mt-6" title="嵌入配置">
+        <div className="flex flex-wrap gap-3">
+          {(["dark", "light", "compact"] as const).map((theme) => (
+            <Link
+              className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                theme === embedTheme
+                  ? "border-brass-500 bg-brass-500 text-iron-950"
+                  : "border-white/10 bg-white/[0.04] text-stone-300 hover:border-brass-500/50"
+              }`}
+              href={`/public/rankings/${page.pageId}?weapon=${selectedWeapon.id}&theme=${theme}&height=${embedHeight}`}
+              key={theme}
+            >
+              {theme}
+            </Link>
+          ))}
+          {[480, 640, 800].map((height) => (
+            <Link
+              className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                height === embedHeight
+                  ? "border-piste-500 bg-piste-500 text-iron-950"
+                  : "border-white/10 bg-white/[0.04] text-stone-300 hover:border-piste-500/50"
+              }`}
+              href={`/public/rankings/${page.pageId}?weapon=${selectedWeapon.id}&theme=${embedTheme}&height=${height}`}
+              key={height}
+            >
+              {height}px
+            </Link>
+          ))}
+        </div>
+      </Panel>
+
       <Panel className="mt-6">
         {rows.length > 0 ? (
           <RankingBoard weapon={selectedWeapon} rows={rows} />
@@ -116,6 +181,37 @@ function resolveWeapon(page: PublicRankingPagePayload, weaponId?: string): Weapo
     page.weapons.find((weapon) => weapon.id === page.defaultWeaponTypeId) ??
     page.weapons[0]
   );
+}
+
+function resolveTheme(theme: string | undefined, fallback: PublicPageTheme): PublicPageTheme {
+  if (theme === "dark" || theme === "light" || theme === "compact") {
+    return theme;
+  }
+
+  return fallback;
+}
+
+function resolveEmbedHeight(height: string | undefined) {
+  const parsed = Number(height);
+  if ([480, 640, 800].includes(parsed)) {
+    return parsed;
+  }
+
+  return 640;
+}
+
+function buildEmbedUrl(baseUrl: string, options: { height: number; theme: PublicPageTheme; weapon: string }) {
+  const params = new URLSearchParams({
+    weapon: options.weapon,
+    theme: options.theme,
+    height: String(options.height)
+  });
+
+  return `${baseUrl}?${params.toString()}`;
+}
+
+function buildIframeCode({ height, src, title }: { height: number; src: string; title: string }) {
+  return `<iframe src="${src}" title="${title}" width="100%" height="${height}" style="border:0;border-radius:16px;"></iframe>`;
 }
 
 function EmptyRanking({ weapon }: { weapon: WeaponType }) {

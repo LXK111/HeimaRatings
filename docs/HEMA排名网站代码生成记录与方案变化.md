@@ -74,6 +74,7 @@
 | v6.8 | 2026-07-01 | Codex | 整理部署前待执行阶段和部署后交互业务优化项 |
 | v6.9 | 2026-07-01 | Codex | 执行阶段 55，新增签表视图浏览器验收 |
 | v7.0 | 2026-07-01 | Codex | 执行阶段 58，新增真实数据导入/初始化工具 |
+| v7.1 | 2026-07-01 | Codex | 执行阶段 59，补充公开页和嵌入页生产化细节 |
 
 ## 1. 文档目的
 
@@ -1976,3 +1977,34 @@ HeimaRatings/
 方案变化：
 
 - 部署前数据初始化从手工 SQL/页面逐条录入推进到可 dry-run、可 apply、可验收的 CSV 导入工具；普通管理端上传 UI 留到后续业务需要明确后再做。
+
+### 阶段 59：公开页和嵌入页生产化细节
+
+方案细节：
+
+- 阶段 59 的目标是让公开榜单和 iframe 嵌入页具备部署前可分享、可嵌入、可验收的生产化细节。
+- `/public/rankings/[pageId]` 新增动态 metadata，公开页不可用时返回不可用 metadata。
+- `/embed/rankings/[pageId]` 设置 `robots: noindex, nofollow`，避免 iframe 页面被搜索引擎当主页面收录。
+- 公开页 iframe 代码新增 `weapon`、`theme` 和 `height` 参数。
+- 嵌入页支持 `theme=dark|light|compact` 和 `height=480|640|800`。
+- 排名管理页新增当前组织公开页发布入口，展示公开链接、iframe 代码、pageId、主题和启用状态。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/app/public/rankings/[pageId]/page.tsx`。
+- 已更新 `HeimaRatings/app/embed/rankings/[pageId]/page.tsx`。
+- 已更新 `HeimaRatings/app/tournaments/[id]/rankings/page.tsx`。
+- 已更新 `HeimaRatings/scripts/verify_public_multi_weapon_e2e.mjs`。
+- 已创建 `HeimaRatings/docs/stage-59.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、已完成阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_public_multi_weapon_e2e.mjs`：通过，脚本语法无错误。
+- `npm run public:verify`：通过，真库多武器公开页、metadata、iframe 参数、compact 嵌入页和临时数据清理均通过。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- 公开展示从“能访问榜单”推进到“可分享、可嵌入、可被验收”；公开页 CRUD 和项目级公开榜单继续不进入本阶段。

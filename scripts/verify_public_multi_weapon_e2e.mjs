@@ -81,6 +81,7 @@ async function main() {
       await waitForServer(baseUrl);
       await verifyPublicApi(baseUrl, created.pageId, seed.weaponNames);
       await verifyPublicPage(baseUrl, created.pageId, seed.weaponNames);
+      await verifyEmbedPage(baseUrl, created.pageId, seed.weaponNames[0]);
     } finally {
       stopServer();
     }
@@ -286,8 +287,19 @@ async function verifyPublicPage(url, pageId, weaponNames) {
       throw new Error(`public ranking page returned HTTP ${response?.status() ?? "unknown"}`);
     }
     await expectText(page, "武器切换", "public ranking page");
+    await expectText(page, "嵌入配置", "public ranking embed config");
+    await expectText(page, "theme=dark", "public ranking iframe theme");
+    await expectText(page, "height=640", "public ranking iframe height");
     for (const weaponName of weaponNames) {
       await expectText(page, weaponName, "public ranking weapon switch");
+    }
+    const title = await page.title();
+    if (title !== "Stage 45 多武器公开榜单验收 | HEMA Ratings") {
+      throw new Error(`public ranking page title mismatch: ${title}`);
+    }
+    const description = await page.locator("meta[name='description']").getAttribute("content");
+    if (!description?.includes("Stage 45 多武器公开榜单验收")) {
+      throw new Error(`public ranking metadata description mismatch: ${description ?? "missing"}`);
     }
     if (pageErrors.length > 0) {
       throw new Error(`Browser page errors:\n${pageErrors.join("\n")}`);
@@ -300,6 +312,33 @@ async function verifyPublicPage(url, pageId, weaponNames) {
   }
 
   console.log("public multi-weapon page: ok");
+}
+
+async function verifyEmbedPage(url, pageId, weaponName) {
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: existsSync(chromeExecutablePath) ? chromeExecutablePath : undefined
+  });
+  const page = await browser.newPage({ viewport: { width: 960, height: 640 } });
+
+  try {
+    const response = await page.goto(
+      new URL(`/embed/rankings/${pageId}?theme=compact&height=480`, url).toString(),
+      { waitUntil: "networkidle" }
+    );
+    if (!response || !response.ok()) {
+      throw new Error(`embed ranking page returned HTTP ${response?.status() ?? "unknown"}`);
+    }
+    await expectText(page, weaponName, "embed compact ranking content");
+    const robots = await page.locator("meta[name='robots']").getAttribute("content");
+    if (!robots?.includes("noindex")) {
+      throw new Error(`embed ranking robots metadata mismatch: ${robots ?? "missing"}`);
+    }
+  } finally {
+    await browser.close();
+  }
+
+  console.log("public embed page: ok");
 }
 
 async function cleanupSeedData(supabase, created) {

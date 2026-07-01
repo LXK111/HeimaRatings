@@ -62,6 +62,7 @@
 | v5.6 | 2026-07-01 | Codex | 整理部署前待执行阶段和部署后交互业务优化项 |
 | v5.7 | 2026-07-01 | Codex | 更新阶段 55 签表视图浏览器验收状态 |
 | v5.8 | 2026-07-01 | Codex | 更新阶段 58 真实数据导入工具状态 |
+| v5.9 | 2026-07-01 | Codex | 更新阶段 59 公开页和嵌入页生产化细节状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -89,7 +90,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 58：真实数据导入/初始化工具。
+当前已推进到阶段 59：公开页和嵌入页生产化细节。
 
 已完成阶段：
 
@@ -150,6 +151,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 54：管理端签表视图优先读取 `bracket_slots`，展示固定签位、轮空和晋级来源，并保留 matches 推导兜底。
 - 阶段 55：扩展签表晋级真库验收脚本，用真实浏览器验证 editor/viewer 都能读取管理端签表中的固定签位、轮空和晋级来源。
 - 阶段 58：新增 CSV 真实数据导入工具，支持 dry-run、显式 apply、选手、武器积分和项目参赛名单导入，并通过临时组织真库验收。
+- 阶段 59：公开页新增动态 metadata 和 iframe 参数，嵌入页支持主题/高度参数，排名管理页展示公开页复制入口，并扩展公开页真库浏览器验收。
 
 当前阶段边界：
 
@@ -200,7 +202,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run bracket:slots:advance:verify` 会以 Supabase 模式验证生成首轮、完成比赛、生成下一轮、下一轮 slots、真实 match 数量和管理端浏览器签表展示。
 - `npm run data:import -- --dir docs/examples/import --organization-slug hema-ratings-demo` 会校验示例 CSV 并输出 dry-run 导入计划；传入 `--apply` 才会写入真库。
 - `npm run data:import:verify` 会创建临时组织，执行真实 CSV apply 导入，验证选手、武器积分和项目参赛名单写入后清理临时数据。
-- `npm run public:verify` 会以 Supabase 模式创建临时多武器公开页，验证公开 API 和浏览器公开页展示后清理临时数据。
+- `npm run public:verify` 会以 Supabase 模式创建临时多武器公开页，验证公开 API、metadata、iframe 参数、嵌入页和浏览器公开页展示后清理临时数据。
 - `npm run auth:browser:verify` 会以 Supabase 模式启动临时服务，用真实 viewer/editor 测试账号验证浏览器登录态、viewer 写权限拒绝、editor 多个真实管理表单提交和行内编辑保存。
 - 公开页和嵌入页的 `AppShell` 不再触发管理端授权上下文，匿名访问不会被重定向到登录页。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
@@ -209,7 +211,6 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 部署前主线：
 
-- 阶段 59：公开页和嵌入页生产化细节。补充 SEO metadata、错误/加载状态、多公开页管理入口和 iframe 主题/尺寸配置。
 - 阶段 60：部署前运行形态收口。确认 Python Ranking Engine 部署方式、Vercel/Supabase 环境变量、migration 执行顺序和生产验收 checklist。
 
 ## 交互业务优化项（部署后推进）
