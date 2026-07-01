@@ -107,7 +107,7 @@ async function verifyBrowserAuthFlow(url, config) {
 
     const editorContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
     const editorPage = await newTrackedPage(editorContext, pageErrors, consoleErrors);
-    await verifyEditorLogin(editorPage, url, config);
+    await verifyEditorWriteAccess(editorPage, url, config);
     await editorContext.close();
 
     if (pageErrors.length > 0) {
@@ -165,33 +165,30 @@ async function verifyAnonymousPublicPage(page, url) {
   console.log("anonymous public page: ok");
 }
 
-async function verifyEditorLogin(page, url, config) {
-  await page.goto(new URL("/login?next=/weapons", url).toString(), { waitUntil: "networkidle" });
-  await page.getByLabel("邮箱").fill(config.editorEmail);
-  await page.getByLabel("密码").fill(config.editorPassword);
-  await Promise.all([
-    page.waitForURL("**/weapons", { timeout: 15000 }),
-    page.getByRole("button", { name: "登录" }).click()
-  ]);
-  await page.waitForLoadState("networkidle");
+async function verifyEditorWriteAccess(page, url, config) {
+  await signIn(page, url, {
+    email: config.editorEmail,
+    password: config.editorPassword,
+    nextPath: "/weapons",
+    label: "editor"
+  });
   await expectText(page, "武器类型管理", "editor login weapons");
   await expectText(page, "武器积分池", "editor login weapons");
 
-  await page.goto(new URL("/tournaments/demo/matches", url).toString(), { waitUntil: "networkidle" });
-  await expectText(page, "比赛录入", "editor matches page");
-  await page.getByLabel("发布目标").waitFor({ state: "visible", timeout: 5000 });
-  console.log("editor browser login: ok");
+  await submitMatchForm(page, url, {
+    expectedText: "比赛已保存并加入当前计算队列。",
+    label: "editor match form write"
+  });
+  console.log("editor browser form write: ok");
 }
 
 async function verifyViewerReadOnlyAccess(page, url, config) {
-  await page.goto(new URL("/login?next=/weapons", url).toString(), { waitUntil: "networkidle" });
-  await page.getByLabel("邮箱").fill(config.viewerEmail);
-  await page.getByLabel("密码").fill(config.viewerPassword);
-  await Promise.all([
-    page.waitForURL("**/weapons", { timeout: 15000 }),
-    page.getByRole("button", { name: "登录" }).click()
-  ]);
-  await page.waitForLoadState("networkidle");
+  await signIn(page, url, {
+    email: config.viewerEmail,
+    password: config.viewerPassword,
+    nextPath: "/weapons",
+    label: "viewer"
+  });
   await expectText(page, "武器类型管理", "viewer login weapons");
   await expectText(page, "武器积分池", "viewer login weapons");
 
@@ -213,12 +210,73 @@ async function verifyViewerReadOnlyAccess(page, url, config) {
     throw new Error(`viewer ranking snapshot write should be denied with HTTP 403, got ${status}`);
   }
 
+  await submitMatchForm(page, url, {
+    expectedText: "Organization editor or admin role required",
+    label: "viewer match form write denial"
+  });
   console.log("viewer browser read-only access: ok");
 }
 
-async function expectText(page, text, label) {
+async function signIn(page, url, { email, password, nextPath, label }) {
+  await page.goto(new URL(`/login?next=${encodeURIComponent(nextPath)}`, url).toString(), {
+    waitUntil: "networkidle"
+  });
+  await page.getByLabel("邮箱").fill(email);
+  await page.getByLabel("密码").fill(password);
+  await Promise.all([
+    page.waitForURL(`**${nextPath}`, { timeout: 15000 }),
+    page.getByRole("button", { name: "登录" }).click()
+  ]);
+  await page.waitForLoadState("networkidle");
+  console.log(`${label} browser login: ok`);
+}
+
+async function submitMatchForm(page, url, { expectedText, label }) {
+  await page.goto(new URL("/tournaments/demo/matches", url).toString(), { waitUntil: "networkidle" });
+  await expectText(page, "比赛录入", `${label} page`);
+  await page.getByLabel("发布目标").waitFor({ state: "visible", timeout: 5000 });
+
+  await page.getByLabel("轮次").fill(String(9000 + Math.floor(Math.random() * 1000)));
+  await selectFirstTwoPlayers(page, label);
+  await page.getByLabel("A 得分").fill("13");
+  await page.getByLabel("B 得分").fill("7");
+
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/tournaments/demo/matches") &&
+      response.request().method() === "POST",
+    { timeout: 15000 }
+  );
+  await page.getByRole("button", { name: "保存比赛" }).click();
+  const response = await responsePromise;
+  if (label.includes("editor") && !response.ok()) {
+    throw new Error(`${label} POST failed with HTTP ${response.status()}: ${await response.text()}`);
+  }
+  if (label.includes("viewer") && response.status() !== 403) {
+    throw new Error(`${label} should be denied with HTTP 403, got ${response.status()}`);
+  }
+
+  await expectText(page, expectedText, label, 15000);
+}
+
+async function selectFirstTwoPlayers(page, label) {
+  const player1Select = page.getByLabel("选手 A");
+  const player2Select = page.getByLabel("选手 B");
+  await player1Select.waitFor({ state: "visible", timeout: 5000 });
+  await player2Select.waitFor({ state: "visible", timeout: 5000 });
+
+  const playerCount = await player1Select.locator("option").count();
+  if (playerCount < 2) {
+    throw new Error(`${label} requires at least 2 selectable players, got ${playerCount}`);
+  }
+
+  await player1Select.selectOption({ index: 0 });
+  await player2Select.selectOption({ index: 1 });
+}
+
+async function expectText(page, text, label, timeout = 5000) {
   const locator = page.getByText(text, { exact: false }).first();
-  await locator.waitFor({ state: "visible", timeout: 5000 }).catch(() => {
+  await locator.waitFor({ state: "visible", timeout }).catch(() => {
     throw new Error(`${label} did not show expected text: ${text}`);
   });
 }

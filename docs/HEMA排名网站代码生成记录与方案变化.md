@@ -59,6 +59,7 @@
 | v5.3 | 2026-07-01 | Codex | 执行阶段 40，新增浏览器自动化页面流验收 |
 | v5.4 | 2026-07-01 | Codex | 执行阶段 41，新增 Supabase 登录态浏览器验收 |
 | v5.5 | 2026-07-01 | Codex | 执行阶段 42，新增 viewer 浏览器权限拒绝验收 |
+| v5.6 | 2026-07-01 | Codex | 执行阶段 43，新增真实表单提交路径浏览器权限验收 |
 
 ## 1. 文档目的
 
@@ -1510,3 +1511,32 @@ HeimaRatings/
 方案变化：
 
 - Supabase 浏览器验收从“editor 能登录”推进到“viewer/editor 角色边界可验证”，后续可以继续补真实表单提交和自动轮空落位。
+
+### 阶段 43：真实表单提交路径浏览器权限验收
+
+方案细节：
+
+- 阶段 43 的目标是把 Supabase 浏览器验收从脚本直接触发写入口推进到真实页面表单操作。
+- viewer 账号应能登录并读取管理端页面，但在比赛录入页点击“保存比赛”时必须被拒绝。
+- editor 账号应能登录并在比赛录入页通过真实表单保存比赛。
+- 本阶段不新增业务 UI，也不改变数据库权限策略，只验证现有表单、API、Repository 和 RLS 组合后的真实用户路径。
+- editor 表单提交会在 Supabase 真库中新增测试比赛记录，当前阶段不做自动回滚。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/scripts/verify_management_auth_browser_e2e.mjs`，抽出浏览器登录函数并新增真实比赛表单提交验收。
+- 已创建 `HeimaRatings/docs/stage-43.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_management_auth_browser_e2e.mjs`：通过，脚本语法无错误。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run browser:verify`：通过，已自动执行 `build`、临时启动生产服务，并验证核心页面。
+- `npm run auth:browser:verify`：通过，已验证匿名管理页重定向、匿名公开页访问、viewer 只读写拒绝、viewer 真实表单写拒绝和 editor 真实表单写入。
+- `git diff --check`：通过，无空白格式问题。
+
+方案变化：
+
+- Supabase 浏览器验收从“角色边界可通过 API 写入口验证”推进到“真实表单点击路径也能验证角色边界”，后续可以继续补更多管理端表单写路径和自动轮空落位。
