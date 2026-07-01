@@ -10,7 +10,6 @@ import {
   Trophy,
   UsersRound
 } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { signOut } from "@/lib/server/auth-actions";
 import { requireManagementUser } from "@/lib/server/auth-guard";
 import { getAuthorizedOrganizationState } from "@/lib/server/organization-access";
@@ -37,7 +36,6 @@ interface AppShellProps {
 }
 
 export async function AppShell({
-  eyebrow = "HEMA Ratings",
   title,
   description,
   showOrganizationSwitcher = true,
@@ -78,15 +76,11 @@ export async function AppShell({
     <main className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 md:px-8">
       <header className="mb-8 rounded-[2rem] border border-white/10 bg-iron-950/70 p-4 shadow-blade backdrop-blur md:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-3 flex flex-wrap gap-2">
-              <StatusBadge label="Phase 2" tone="brass" />
-              <StatusBadge label={eyebrow} tone="muted" />
-            </div>
+          <div className="w-full md:w-[680px]">
             <h1 className="text-3xl font-black tracking-tight text-stone-50 md:text-5xl">
               {title}
             </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-300 md:text-base">
+            <p className="mt-3 text-sm leading-7 text-stone-300 md:text-base">
               {description}
             </p>
           </div>
