@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { BracketBoard } from "@/components/matches/bracket-board";
 import { MatchEntryForm } from "@/components/matches/match-entry-form";
 import { MatchListPanel } from "@/components/matches/match-list-panel";
 import { RankingControlPanel } from "@/components/matches/ranking-control-panel";
@@ -462,6 +463,12 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
           onUpdateResult={updateMatchResult}
         />
       </section>
+
+      <BracketBoard
+        event={selectedEvent}
+        matches={selectedEventMatches}
+        weapon={eventWeapon}
+      />
 
       <RankingControlPanel
         algorithm={algorithm}

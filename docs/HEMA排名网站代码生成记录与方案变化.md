@@ -52,6 +52,7 @@
 | v4.6 | 2026-06-30 | Codex | 执行阶段 33，新增淘汰晋级最小闭环 |
 | v4.7 | 2026-06-30 | Codex | 执行阶段 34，新增项目级排名闭环 |
 | v4.8 | 2026-06-30 | Codex | 执行阶段 35，新增项目级排名快照展示入口 |
+| v4.9 | 2026-07-01 | Codex | 执行阶段 36，新增签表可视化 |
 
 ## 1. 文档目的
 
@@ -1293,3 +1294,30 @@ HeimaRatings/
 方案变化：
 
 - 项目级排名从“可保存快照”推进到“保存后可回看”，为后续公开页项目榜和快照历史列表提供入口。
+
+### 阶段 36：签表可视化
+
+方案细节：
+
+- 阶段 36 的目标是在管理端直观看到当前项目签表。
+- 本阶段继续复用 `matches.round`，不新增签表表。
+- 签表以泳道方式按轮次展示。
+- 每场比赛展示选手、比分、完成状态和胜者高亮。
+- 签表状态展示暂无对阵、当前轮进行中、可生成下一轮和冠军。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/components/matches/bracket-board.tsx`。
+- 已更新 `HeimaRatings/components/matches/match-workbench.tsx`，在比赛录入页接入当前项目签表视图。
+- 已创建 `HeimaRatings/docs/stage-36.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段和后续阶段边界。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 赛事编排从“列表式比赛记录”推进到“轮次分组签表视图”，后续可继续补轮空落位模型和浏览器自动化验收。
