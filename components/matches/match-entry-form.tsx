@@ -47,6 +47,8 @@ export function MatchEntryForm({
   onScore2Change,
   onSubmit
 }: MatchEntryFormProps) {
+  const hasEnoughRegisteredPlayers = selectablePlayers.length >= 2;
+
   return (
     <Panel eyebrow="Input" title="录入比赛">
       <form className="grid gap-4" onSubmit={onSubmit}>
@@ -86,6 +88,9 @@ export function MatchEntryForm({
               onChange={(event) => onPlayer1NameChange(event.target.value)}
               value={player1Name}
             >
+              {selectablePlayers.length === 0 ? (
+                <option value="">暂无已报名选手</option>
+              ) : null}
               {selectablePlayers.map((player) => (
                 <option key={player.id} value={player.name}>
                   {player.name}
@@ -100,6 +105,9 @@ export function MatchEntryForm({
               onChange={(event) => onPlayer2NameChange(event.target.value)}
               value={player2Name}
             >
+              {selectablePlayers.length < 2 ? (
+                <option value="">暂无可选对手</option>
+              ) : null}
               {selectablePlayers.map((player) => (
                 <option key={player.id} value={player.name}>
                   {player.name}
@@ -133,15 +141,15 @@ export function MatchEntryForm({
         </div>
 
         <div className="rounded-2xl border border-brass-500/20 bg-brass-500/10 p-4 text-sm text-brass-100">
-          当前项目武器：{eventWeapon?.name ?? "未知武器"}。提交后进入比赛列表；Supabase 模式会写入数据库，Mock 模式仅保留在当前页面。
+          当前项目武器：{eventWeapon?.name ?? "未知武器"}。比赛录入仅允许选择当前项目已报名选手。
         </div>
 
         <button
           className="rounded-2xl bg-brass-500 px-5 py-3 text-sm font-black text-iron-950 transition hover:bg-brass-400 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={isSaving}
+          disabled={isSaving || !hasEnoughRegisteredPlayers}
           type="submit"
         >
-          {isSaving ? "提交中..." : "保存比赛"}
+          {isSaving ? "提交中..." : hasEnoughRegisteredPlayers ? "保存比赛" : "请先添加参赛选手"}
         </button>
       </form>
     </Panel>

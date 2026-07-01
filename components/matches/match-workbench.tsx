@@ -127,11 +127,16 @@ export function MatchWorkbench({
     ? bracketSlots.filter((slot) => slot.eventId === selectedEvent.id)
     : [];
   const selectablePlayers = useMemo(() => {
-    const eventWeaponTypeId = selectedEvent?.weaponTypeId;
-    return players.filter((player) =>
-      player.weaponRatings.some((rating) => rating.weaponTypeId === eventWeaponTypeId)
-    );
-  }, [selectedEvent?.weaponTypeId]);
+    const playerById = new Map(players.map((player) => [player.id, player]));
+    return entries
+      .filter((entry) => entry.status === "registered")
+      .map((entry) => playerById.get(entry.playerId))
+      .filter((player): player is PlayerSummary => Boolean(player));
+  }, [entries, players]);
+  const selectablePlayerNames = useMemo(
+    () => new Set(selectablePlayers.map((player) => player.name)),
+    [selectablePlayers]
+  );
   const filteredMatches = matches.filter((match) => match.weaponTypeId === weaponTypeId);
   const advanceDisabledReason = getAdvanceDisabledReason(selectedEvent, selectedEventMatches, entries);
 
@@ -178,6 +183,7 @@ export function MatchWorkbench({
         setEntries([]);
         return;
       }
+      setEntries([]);
 
       try {
         const response = await fetch(`/api/tournaments/${tournamentId}/events/${selectedEvent.id}/entries`);
@@ -470,6 +476,12 @@ export function MatchWorkbench({
     }
     if (!player1Name || !player2Name) {
       return "请选择双方选手。";
+    }
+    if (selectablePlayers.length < 2) {
+      return "当前比赛项目至少需要 2 名已报名选手才能录入比赛。";
+    }
+    if (!selectablePlayerNames.has(player1Name) || !selectablePlayerNames.has(player2Name)) {
+      return "只能选择当前比赛项目已报名的选手。";
     }
     if (player1Name === player2Name) {
       return "双方选手不能相同。";

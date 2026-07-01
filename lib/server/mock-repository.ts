@@ -152,7 +152,10 @@ export function createMatchDraft(tournamentId: string, body: unknown) {
   const player2 = players.find((player) => player.name === player2Name);
   const round = Number(body.round ?? 1);
   const eventId = String(body.eventId ?? tournamentEvents[0]?.id ?? "");
-  const event = tournamentEvents.find((item) => item.id === eventId) ?? tournamentEvents[0];
+  const resolvedTournamentId = resolveDemoTournamentId(tournamentId);
+  const event = tournamentEvents.find(
+    (item) => item.id === eventId && item.tournamentId === resolvedTournamentId
+  );
 
   if (!player1Name || !player2Name) {
     throw new Error("player1Name and player2Name are required");
@@ -173,10 +176,17 @@ export function createMatchDraft(tournamentId: string, body: unknown) {
   if (score1 < 0 || score2 < 0) {
     throw new Error("score1 and score2 must be non-negative");
   }
+  if (!event) {
+    throw new Error("Tournament event not found");
+  }
+  if (!player1 || !player2) {
+    throw new Error("Both players must exist before creating a match");
+  }
+  ensureMockPlayersRegisteredForEvent(event.id, [player1.id, player2.id]);
 
   const created = {
     id: `match-draft-${Date.now()}`,
-    tournamentId: resolveDemoTournamentId(tournamentId),
+    tournamentId: resolvedTournamentId,
     eventId: event.id,
     weaponTypeId: event.weaponTypeId,
     round,
@@ -193,6 +203,18 @@ export function createMatchDraft(tournamentId: string, body: unknown) {
   matches.push(created);
 
   return created;
+}
+
+function ensureMockPlayersRegisteredForEvent(eventId: string, playerIds: string[]) {
+  const registeredPlayerIds = new Set(
+    tournamentEventEntries
+      .filter((entry) => entry.eventId === eventId && entry.status === "registered")
+      .map((entry) => entry.playerId)
+  );
+
+  if (playerIds.some((playerId) => !registeredPlayerIds.has(playerId))) {
+    throw new Error("Match players must be registered in the selected tournament event");
+  }
 }
 
 export function updateMatchResultDraft(

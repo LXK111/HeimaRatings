@@ -654,6 +654,10 @@ export class SupabaseRepository implements AppRepository {
       input.player1Name,
       input.player2Name
     );
+    await this.ensurePlayersRegisteredForEvent(event.id, [
+      matchPlayers.player1.id,
+      matchPlayers.player2.id
+    ]);
     const winnerId =
       input.score1 === input.score2
         ? null
@@ -1521,6 +1525,23 @@ export class SupabaseRepository implements AppRepository {
     }
 
     return { player1, player2 };
+  }
+
+  private async ensurePlayersRegisteredForEvent(eventId: string, playerIds: string[]) {
+    const entries = await this.query<Pick<TournamentEventEntryRow, "player_id">[]>(
+      (await this.getClient())
+        .from("tournament_event_entries")
+        .select("player_id")
+        .eq("event_id", eventId)
+        .eq("status", "registered")
+        .in("player_id", playerIds),
+      "ensurePlayersRegisteredForEvent"
+    );
+    const registeredPlayerIds = new Set(entries.map((entry) => entry.player_id));
+
+    if (playerIds.some((playerId) => !registeredPlayerIds.has(playerId))) {
+      throw new Error("Match players must be registered in the selected tournament event");
+    }
   }
 
   private async listPublicPageSnapshots(publicPageId: string) {
