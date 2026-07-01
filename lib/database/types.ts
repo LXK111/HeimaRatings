@@ -93,6 +93,18 @@ export interface TournamentEventEntryRow {
   updated_at: string;
 }
 
+export interface BracketSlotRow {
+  id: string;
+  event_id: string;
+  round: number;
+  slot_index: number;
+  player_id: string | null;
+  source_match_id: string | null;
+  status: "empty" | "occupied" | "bye" | "advanced";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MatchRow {
   id: string;
   tournament_id: string;
@@ -168,6 +180,7 @@ export interface DatabaseTables {
   tournaments: TournamentRow;
   tournament_events: TournamentEventRow;
   tournament_event_entries: TournamentEventEntryRow;
+  bracket_slots: BracketSlotRow;
   matches: MatchRow;
   ranking_snapshots: RankingSnapshotRow;
   ranking_snapshot_items: RankingSnapshotItemRow;

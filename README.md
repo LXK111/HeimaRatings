@@ -55,6 +55,7 @@
 | v4.9 | 2026-07-01 | Codex | 更新阶段 48 Ranking Engine 输入输出回归测试状态 |
 | v5.0 | 2026-07-01 | Codex | 更新阶段 49 Ranking Engine 输入构造回归测试状态 |
 | v5.1 | 2026-07-01 | Codex | 更新阶段 50 Supabase 真库 Ranking Engine 输入构造回归验收状态 |
+| v5.2 | 2026-07-01 | Codex | 更新阶段 51 bracket_slots 签位模型数据库基础状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -82,7 +83,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 50：Supabase 真库 Ranking Engine 输入构造回归验收。
+当前已推进到阶段 51：bracket_slots 签位模型数据库基础。
 
 已完成阶段：
 
@@ -137,6 +138,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 48：新增 Ranking Engine 输入输出回归测试，覆盖固定输入输出稳定性和轮空不进入比赛输入。
 - 阶段 49：新增 API/Repository 级 Ranking Engine 输入构造回归测试，覆盖项目过滤和轮空不生成虚拟比赛。
 - 阶段 50：新增 Supabase 真库 Ranking Engine 输入构造回归验收，覆盖真实组织上下文、管理 API 鉴权和轮空不生成虚拟比赛。
+- 阶段 51：新增 `bracket_slots` 签位模型数据库基础，支持固定签位、轮空、晋级来源和组织隔离约束验收。
 
 当前阶段边界：
 
@@ -171,6 +173,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 比赛录入页已支持更新已有对阵结果；单败淘汰项目可在当前轮全部完成后生成下一轮草稿。
 - 比赛录入页已支持按当前项目查看轮次分组签表，展示比分、胜者、完成状态和冠军提示。
 - 比赛录入页已支持首轮轮空提示和自动轮空落位；奇数晋级候选生成下一轮时不会创建虚拟比赛，轮空者会在后续轮次继续合并。
+- 数据库侧已新增 `bracket_slots` 签位模型，可记录项目内固定签位、轮空状态和晋级来源；现有签表生成逻辑暂未写入该表。
 - 排名页已支持项目级排名计算、项目级快照保存和最近项目快照展示；公开页暂不展示项目级榜单。
 - `npm run db:verify` 已覆盖 `matches`、`ranking_snapshots.event_id` 和 `ranking_snapshot_items` 的组织一致性约束验收。
 - `npm run auth:api:verify` 已覆盖项目参赛名单读取、viewer 签表生成拒绝和 editor 项目级排名快照写入。
@@ -186,7 +189,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 后续阶段
 
-- 后续增强：引入完整 `bracket_slots` 模型，支持固定签位、种子位审计和复杂轮空可视化。
+- 后续增强：将签表生成和晋级落位写入 `bracket_slots`，让管理端签表视图从固定签位模型读取。
 
 ## 遗留 TODO
 

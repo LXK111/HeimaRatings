@@ -67,6 +67,7 @@
 | v6.1 | 2026-07-01 | Codex | 执行阶段 48，新增 Ranking Engine 输入输出回归测试 |
 | v6.2 | 2026-07-01 | Codex | 执行阶段 49，新增 Ranking Engine 输入构造回归测试 |
 | v6.3 | 2026-07-01 | Codex | 执行阶段 50，新增 Supabase 真库 Ranking Engine 输入构造回归验收 |
+| v6.4 | 2026-07-01 | Codex | 执行阶段 51，新增 bracket_slots 签位模型数据库基础 |
 
 ## 1. 文档目的
 
@@ -1746,3 +1747,34 @@ HeimaRatings/
 方案变化：
 
 - Ranking Engine 质量保障从 Mock API/Repository 路径推进到 Supabase 真库、组织上下文和管理 API 鉴权路径；复杂签位审计继续留给 `bracket_slots` 模型。
+
+### 阶段 51：bracket_slots 签位模型数据库基础
+
+方案细节：
+
+- 阶段 51 的目标是把签位从隐式推导推进到可持久化、可约束、可验收的数据模型。
+- `bracket_slots` 记录项目内具体轮次和签位序号，支持固定签位、轮空和晋级来源。
+- `player_id` 表示选手落位，`source_match_id` 表示该签位来自某场比赛的晋级结果。
+- 数据库 trigger 保证 slot 的选手和来源比赛不跨组织、不跨项目。
+- RLS policy 沿用组织成员可读、`admin/editor` 可写的权限模型。
+- 本阶段只建立数据库基础，不改变现有签表生成逻辑和页面读取逻辑。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/database/migrations/20260701093112_bracket_slots.sql`。
+- 已新增 `HeimaRatings/database/validations/202607010002_verify_bracket_slots.sql`。
+- 已更新 `HeimaRatings/lib/database/types.ts`，新增 `BracketSlotRow`。
+- 已创建 `HeimaRatings/docs/stage-51.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- 真库 migration 执行：通过，已执行 `database/migrations/20260701093112_bracket_slots.sql`。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `npm run db:verify`：通过，包含阶段 51 `bracket_slots` validation。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，Mock 模式完整本地验收通过。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- 签表模型从“由 matches 和参赛名单临时推导”推进到“可记录固定签位和晋级来源的数据库基础”；下一阶段可把生成和晋级写入 `bracket_slots`。
