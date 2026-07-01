@@ -58,6 +58,7 @@
 | v5.2 | 2026-07-01 | Codex | 更新阶段 51 bracket_slots 签位模型数据库基础状态 |
 | v5.3 | 2026-07-01 | Codex | 更新阶段 52 签表生成写入 bracket_slots 状态 |
 | v5.4 | 2026-07-01 | Codex | 更新阶段 53 晋级落位写入 bracket_slots 状态 |
+| v5.5 | 2026-07-01 | Codex | 更新阶段 54 管理端签表视图读取 bracket_slots 状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -85,7 +86,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 53：晋级落位写入 bracket_slots。
+当前已推进到阶段 54：管理端签表视图读取 bracket_slots。
 
 已完成阶段：
 
@@ -143,6 +144,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 51：新增 `bracket_slots` 签位模型数据库基础，支持固定签位、轮空、晋级来源和组织隔离约束验收。
 - 阶段 52：初始签表生成同步写入 `bracket_slots`，轮空记录为 slot 而不是虚拟 match，并新增真库生成验收。
 - 阶段 53：单败淘汰晋级同步写入下一轮 `bracket_slots`，真实胜者记录来源比赛，pending bye 进入下一轮签位。
+- 阶段 54：管理端签表视图优先读取 `bracket_slots`，展示固定签位、轮空和晋级来源，并保留 matches 推导兜底。
 
 当前阶段边界：
 
@@ -179,7 +181,8 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 单败淘汰生成下一轮时，Supabase/Mock Repository 会同步写入下一轮 `bracket_slots`；真实胜者使用 `advanced + source_match_id`，pending bye 进入对阵时使用 `occupied`。
 - 比赛录入页已支持按当前项目查看轮次分组签表，展示比分、胜者、完成状态和冠军提示。
 - 比赛录入页已支持首轮轮空提示和自动轮空落位；奇数晋级候选生成下一轮时不会创建虚拟比赛，轮空者会在后续轮次继续合并。
-- 数据库侧已新增 `bracket_slots` 签位模型，可记录项目内固定签位、轮空状态和晋级来源；现有签表生成逻辑暂未写入该表。
+- 数据库侧已新增 `bracket_slots` 签位模型，初始签表生成和晋级落位都会写入固定签位、轮空状态和晋级来源。
+- 比赛录入页签表视图会优先读取 `bracket_slots` 展示固定签位、轮空和晋级来源；无 slots 的旧数据继续按 matches 推导展示。
 - 排名页已支持项目级排名计算、项目级快照保存和最近项目快照展示；公开页暂不展示项目级榜单。
 - `npm run db:verify` 已覆盖 `matches`、`ranking_snapshots.event_id` 和 `ranking_snapshot_items` 的组织一致性约束验收。
 - `npm run auth:api:verify` 已覆盖项目参赛名单读取、viewer 签表生成拒绝和 editor 项目级排名快照写入。
@@ -197,7 +200,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 后续阶段
 
-- 后续增强：让管理端签表视图从 `bracket_slots` 固定签位模型读取。
+- 后续增强：补浏览器视觉验收，覆盖签表页面中的轮空、晋级来源和固定签位展示。
 
 ## 遗留 TODO
 

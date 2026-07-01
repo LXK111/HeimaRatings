@@ -80,6 +80,7 @@ async function main() {
       await expectBracketAction(seed, viewerSession, "advance", 403, "viewer bracket advancement denied");
       const advancePayload = await expectBracketAction(seed, editorSession, "advance", 200, "editor bracket advancement");
       assert(Array.isArray(advancePayload.data) && advancePayload.data.length === 1, "advancement should create 1 real match");
+      await verifyBracketSlotsApi(seed, editorSession, firstRoundMatch.id);
       await verifyAdvancedSlots(supabase, seed, firstRoundMatch.id);
     } finally {
       stopServer();
@@ -199,6 +200,37 @@ async function seedBracketSlotsData(supabase, created, viewerUserId, editorUserI
       xu: xu.id
     }
   };
+}
+
+async function verifyBracketSlotsApi(seed, session, sourceMatchId) {
+  const response = await fetch(
+    new URL(`/api/tournaments/${seed.tournamentId}/events/${seed.eventId}/bracket/slots`, baseUrl),
+    {
+      headers: {
+        Cookie: session.cookieHeader,
+        "x-heima-organization-slug": seed.organizationSlug
+      },
+      redirect: "manual"
+    }
+  );
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : undefined;
+  if (response.status !== 200) {
+    throw new Error(`bracket slots API expected HTTP 200, got ${response.status}: ${text}`);
+  }
+  assert(Array.isArray(payload?.data), "bracket slots API should return data array");
+  assert(payload.data.length === 5, `bracket slots API should return 5 slots, got ${payload.data.length}`);
+  assert(payload.data.some((slot) => slot.status === "bye"), "bracket slots API should include bye slot");
+  assert(
+    payload.data.some((slot) => slot.status === "advanced" && slot.sourceMatchId === sourceMatchId),
+    "bracket slots API should include advanced slot with sourceMatchId"
+  );
+  assert(
+    payload.data.some((slot) => slot.status === "occupied" && slot.playerId === seed.playerIds.zhou),
+    "bracket slots API should include pending bye as occupied second-round slot"
+  );
+
+  console.log("bracket slots API read: ok");
 }
 
 async function completeFirstRoundMatch(supabase, seed) {

@@ -7,6 +7,7 @@ import { MatchEntryForm } from "@/components/matches/match-entry-form";
 import { MatchListPanel } from "@/components/matches/match-list-panel";
 import { RankingControlPanel } from "@/components/matches/ranking-control-panel";
 import type {
+  BracketSlotSummary,
   MatchSummary,
   PlayerSummary,
   PublicRankingPageSummary,
@@ -80,6 +81,7 @@ export function MatchWorkbench({
     [publicPages]
   );
   const [matches, setMatches] = useState<MatchSummary[]>([]);
+  const [bracketSlots, setBracketSlots] = useState<BracketSlotSummary[]>([]);
   const [eventId, setEventId] = useState(activeEvents[0]?.id ?? "");
   const [round, setRound] = useState("1");
   const [player1Name, setPlayer1Name] = useState("");
@@ -109,6 +111,9 @@ export function MatchWorkbench({
   const eventWeapon = weapons.find((weapon) => weapon.id === selectedEvent?.weaponTypeId);
   const selectedEventMatches = selectedEvent
     ? matches.filter((match) => match.eventId === selectedEvent.id)
+    : [];
+  const selectedEventSlots = selectedEvent
+    ? bracketSlots.filter((slot) => slot.eventId === selectedEvent.id)
     : [];
   const selectablePlayers = useMemo(() => {
     const eventWeaponTypeId = selectedEvent?.weaponTypeId;
@@ -161,6 +166,31 @@ export function MatchWorkbench({
     }
 
     void loadEntries();
+  }, [selectedEvent?.id, tournamentId]);
+
+  useEffect(() => {
+    async function loadBracketSlots() {
+      if (!selectedEvent) {
+        setBracketSlots([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/tournaments/${tournamentId}/events/${selectedEvent.id}/bracket/slots`);
+        const payload = (await response.json()) as ApiResponse<BracketSlotSummary[]>;
+        if (!response.ok || "error" in payload) {
+          throw new Error("error" in payload ? payload.error.message : "签位加载失败");
+        }
+        setBracketSlots((current) => [
+          ...current.filter((slot) => slot.eventId !== selectedEvent.id),
+          ...payload.data
+        ]);
+      } catch {
+        setBracketSlots((current) => current.filter((slot) => slot.eventId !== selectedEvent.id));
+      }
+    }
+
+    void loadBracketSlots();
   }, [selectedEvent?.id, tournamentId]);
 
   useEffect(() => {
@@ -289,6 +319,7 @@ export function MatchWorkbench({
       }
 
       setMatches((current) => [...current, ...payload.data]);
+      await refreshBracketSlots(selectedEvent.id);
       resetRankingResult();
       setMessage(`已生成 ${payload.data.length} 场下一轮对阵。`);
     } catch (advanceError) {
@@ -296,6 +327,19 @@ export function MatchWorkbench({
     } finally {
       setIsAdvancing(false);
     }
+  }
+
+  async function refreshBracketSlots(nextEventId: string) {
+    const response = await fetch(`/api/tournaments/${tournamentId}/events/${nextEventId}/bracket/slots`);
+    const payload = (await response.json()) as ApiResponse<BracketSlotSummary[]>;
+    if (!response.ok || "error" in payload) {
+      return;
+    }
+
+    setBracketSlots((current) => [
+      ...current.filter((slot) => slot.eventId !== nextEventId),
+      ...payload.data
+    ]);
   }
 
   async function calculateRankings() {
@@ -529,6 +573,7 @@ export function MatchWorkbench({
         entries={entries}
         event={selectedEvent}
         matches={selectedEventMatches}
+        slots={selectedEventSlots}
         weapon={eventWeapon}
       />
 

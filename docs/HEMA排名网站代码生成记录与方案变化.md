@@ -70,6 +70,7 @@
 | v6.4 | 2026-07-01 | Codex | 执行阶段 51，新增 bracket_slots 签位模型数据库基础 |
 | v6.5 | 2026-07-01 | Codex | 执行阶段 52，新增初始签表生成写入 bracket_slots |
 | v6.6 | 2026-07-01 | Codex | 执行阶段 53，新增晋级落位写入 bracket_slots |
+| v6.7 | 2026-07-01 | Codex | 执行阶段 54，新增管理端签表视图读取 bracket_slots |
 
 ## 1. 文档目的
 
@@ -1847,3 +1848,39 @@ HeimaRatings/
 方案变化：
 
 - 签表模型从“只有初始生成写入 slots”推进到“初始生成和晋级落位都写入 slots”；后续可让管理端签表视图从固定签位模型读取。
+
+### 阶段 54：管理端签表视图读取 bracket_slots
+
+方案细节：
+
+- 阶段 54 的目标是让管理端签表视图优先读取 `bracket_slots`。
+- Repository 新增 `listTournamentEventBracketSlots(tournamentId, eventId)` 契约。
+- 新增管理 API：`GET /api/tournaments/[id]/events/[eventId]/bracket/slots`。
+- 比赛工作台在选中项目变化时加载 slots，并在生成下一轮后刷新 slots。
+- `BracketBoard` 优先按 slots 分轮展示固定签位、轮空和晋级来源。
+- 无 slots 时保留原 `matches + entries` 推导逻辑，兼容旧数据和手动比赛。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增 slots 查询契约。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，读取 slots、选手名和来源比赛名。
+- 已更新 `HeimaRatings/lib/server/repositories/mock.ts`，读取 Mock 内存 slots。
+- 已新增 `HeimaRatings/app/api/tournaments/[id]/events/[eventId]/bracket/slots/route.ts`。
+- 已更新 `HeimaRatings/components/matches/match-workbench.tsx`，加载并刷新 bracket slots。
+- 已更新 `HeimaRatings/components/matches/bracket-board.tsx`，优先按 slots 展示固定签位。
+- 已更新 `HeimaRatings/scripts/verify_supabase_bracket_slots_advancement.mjs`，增加 slots API 读取验收。
+- 已创建 `HeimaRatings/docs/stage-54.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_supabase_bracket_slots_advancement.mjs`：通过，脚本语法无错误。
+- `npm run bracket:slots:advance:verify`：通过，真库验证 slots API 可读取首轮和下一轮 slots。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `npm run db:verify`：通过，数据库约束验收仍通过。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，Mock 模式完整本地验收通过。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- 管理端签表展示从“只靠 matches 推导”推进到“优先读取固定签位模型”；后续可补浏览器视觉验收和 slot 编辑能力。

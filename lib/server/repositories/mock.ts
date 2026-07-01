@@ -238,6 +238,15 @@ export class MockRepository implements AppRepository {
     };
   }
 
+  async listTournamentEventBracketSlots(tournamentId: string, eventId: string) {
+    const event = listTournamentEvents(tournamentId).find((item) => item.id === eventId);
+    if (!event) {
+      throw new Error("Tournament event not found");
+    }
+
+    return listTournamentEventBracketSlots(eventId);
+  }
+
   async listTournamentMatches(tournamentId: string) {
     return listTournamentMatches(tournamentId);
   }

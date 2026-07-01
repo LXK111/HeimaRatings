@@ -1,4 +1,5 @@
 import type {
+  BracketSlotSummary,
   MatchSummary,
   PlayerSummary,
   PublicRankingPagePayload,
@@ -543,6 +544,43 @@ export class SupabaseRepository implements AppRepository {
     }
 
     return this.getTournamentEventEntrySummary(resolvedTournamentId, resolvedEventId, updated.id);
+  }
+
+  async listTournamentEventBracketSlots(tournamentId: string, eventId: string) {
+    const resolvedTournamentId = resolveId(tournamentId);
+    const resolvedEventId = resolveId(eventId);
+    await this.ensureEventInCurrentTournament(
+      resolvedTournamentId,
+      resolvedEventId,
+      "listTournamentEventBracketSlots.event"
+    );
+    const slots = await this.query<BracketSlotRow[]>(
+      (await this.getClient())
+        .from("bracket_slots")
+        .select("*")
+        .eq("event_id", resolvedEventId)
+        .order("round", { ascending: true })
+        .order("slot_index", { ascending: true }),
+      "listTournamentEventBracketSlots.slots"
+    );
+    const players = await this.loadPlayersByIds(
+      slots.map((slot) => slot.player_id).filter((id): id is string => Boolean(id))
+    );
+    const sourceMatches = await this.query<MatchRow[]>(
+      slots.some((slot) => slot.source_match_id)
+        ? (await this.getClient())
+          .from("matches")
+          .select("*")
+          .in("id", slots.map((slot) => slot.source_match_id).filter((id): id is string => Boolean(id)))
+        : emptyResult<MatchRow[]>(),
+      "listTournamentEventBracketSlots.sourceMatches"
+    );
+    const sourceMatchesById = new Map(sourceMatches.map((match) => [match.id, match]));
+    const sourcePlayers = await this.loadPlayersByIds(collectPlayerIds(sourceMatches));
+
+    return slots.map((slot) =>
+      toBracketSlotSummary(slot, players, sourceMatchesById, sourcePlayers)
+    );
   }
 
   async listTournamentMatches(tournamentId: string) {
@@ -1611,6 +1649,32 @@ function toTournamentEventEntrySummary(
     playerClub: player?.club ?? "未知俱乐部",
     seed: entry.seed ?? undefined,
     status: entry.status
+  };
+}
+
+function toBracketSlotSummary(
+  slot: BracketSlotRow,
+  players: Map<string, PlayerRow>,
+  sourceMatches: Map<string, MatchRow>,
+  sourcePlayers: Map<string, PlayerRow>
+): BracketSlotSummary {
+  const player = slot.player_id ? players.get(slot.player_id) : undefined;
+  const sourceMatch = slot.source_match_id ? sourceMatches.get(slot.source_match_id) : undefined;
+  const sourcePlayer1 = sourceMatch ? sourcePlayers.get(sourceMatch.player1_id) : undefined;
+  const sourcePlayer2 = sourceMatch ? sourcePlayers.get(sourceMatch.player2_id) : undefined;
+
+  return {
+    id: slot.id,
+    eventId: toPublicId(slot.event_id),
+    round: slot.round,
+    slotIndex: slot.slot_index,
+    playerId: slot.player_id ? toPublicId(slot.player_id) : undefined,
+    playerName: player?.name,
+    sourceMatchId: slot.source_match_id ?? undefined,
+    sourceMatchLabel: sourceMatch
+      ? `${sourcePlayer1?.name ?? sourceMatch.player1_id} vs ${sourcePlayer2?.name ?? sourceMatch.player2_id}`
+      : undefined,
+    status: slot.status
   };
 }
 

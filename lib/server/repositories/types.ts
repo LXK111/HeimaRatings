@@ -1,4 +1,5 @@
 import type {
+  BracketSlotSummary,
   MatchSummary,
   Organization,
   OrganizationMembership,
@@ -159,6 +160,7 @@ export interface AppRepository {
     eventId: string,
     input: UpdateTournamentEventEntryInput
   ): Promise<TournamentEventEntrySummary>;
+  listTournamentEventBracketSlots(tournamentId: string, eventId: string): Promise<BracketSlotSummary[]>;
   listTournamentMatches(tournamentId: string): Promise<MatchSummary[]>;
   createMatch(tournamentId: string, input: CreateMatchInput): Promise<MatchSummary>;
   updateMatchResult(tournamentId: string, input: UpdateMatchResultInput): Promise<MatchSummary>;

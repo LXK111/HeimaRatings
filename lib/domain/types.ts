@@ -241,6 +241,7 @@ export interface BracketSlotSummary {
   playerId?: string;
   playerName?: string;
   sourceMatchId?: string;
+  sourceMatchLabel?: string;
   status: "empty" | "occupied" | "bye" | "advanced";
 }
 

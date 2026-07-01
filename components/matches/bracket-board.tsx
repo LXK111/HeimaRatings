@@ -3,6 +3,7 @@
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type {
+  BracketSlotSummary,
   MatchSummary,
   TournamentEventEntrySummary,
   TournamentEventSummary,
@@ -13,13 +14,16 @@ interface BracketBoardProps {
   entries: TournamentEventEntrySummary[];
   event?: TournamentEventSummary;
   matches: MatchSummary[];
+  slots?: BracketSlotSummary[];
   weapon?: WeaponType;
 }
 
-export function BracketBoard({ entries, event, matches, weapon }: BracketBoardProps) {
-  const rounds = groupMatchesByRound(matches);
+export function BracketBoard({ entries, event, matches, slots = [], weapon }: BracketBoardProps) {
+  const slotRounds = groupSlotsByRound(slots);
+  const matchRounds = groupMatchesByRound(matches);
+  const hasSlots = slotRounds.length > 0;
   const status = getBracketStatus(event, matches);
-  const byeNotices = getByeNotices(entries, matches);
+  const byeNotices = hasSlots ? getSlotByeNotices(slots) : getByeNotices(entries, matches);
 
   return (
     <Panel
@@ -34,7 +38,7 @@ export function BracketBoard({ entries, event, matches, weapon }: BracketBoardPr
     >
       {!event ? (
         <p className="text-sm text-stone-400">请选择比赛项目。</p>
-      ) : rounds.length === 0 ? (
+      ) : (hasSlots ? slotRounds.length : matchRounds.length) === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/15 p-6 text-sm text-stone-400">
           当前项目还没有对阵。可先在比赛项目页生成签表，或在比赛录入区手动添加比赛。
         </div>
@@ -50,19 +54,33 @@ export function BracketBoard({ entries, event, matches, weapon }: BracketBoardPr
           <div className="overflow-x-auto pb-2">
             <div
               className="grid min-w-[760px] gap-4"
-              style={{ gridTemplateColumns: `repeat(${rounds.length}, minmax(220px, 1fr))` }}
+              style={{
+                gridTemplateColumns: `repeat(${hasSlots ? slotRounds.length : matchRounds.length}, minmax(220px, 1fr))`
+              }}
             >
-              {rounds.map((round) => (
-                <section className="grid content-start gap-3" key={round.round}>
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-black text-stone-50">第 {round.round} 轮</h3>
-                    <StatusBadge label={`${round.matches.length} 场`} tone="muted" />
-                  </div>
-                  {round.matches.map((match) => (
-                    <BracketMatchCard key={match.id} match={match} />
-                  ))}
-                </section>
-              ))}
+              {hasSlots
+                ? slotRounds.map((round) => (
+                  <section className="grid content-start gap-3" key={round.round}>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-black text-stone-50">第 {round.round} 轮</h3>
+                      <StatusBadge label={`${round.slots.length} 位`} tone="muted" />
+                    </div>
+                    {round.slots.map((slot) => (
+                      <BracketSlotCard key={slot.id} slot={slot} />
+                    ))}
+                  </section>
+                ))
+                : matchRounds.map((round) => (
+                  <section className="grid content-start gap-3" key={round.round}>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-black text-stone-50">第 {round.round} 轮</h3>
+                      <StatusBadge label={`${round.matches.length} 场`} tone="muted" />
+                    </div>
+                    {round.matches.map((match) => (
+                      <BracketMatchCard key={match.id} match={match} />
+                    ))}
+                  </section>
+                ))}
             </div>
           </div>
         </div>
@@ -95,6 +113,29 @@ function BracketMatchCard({ match }: { match: MatchSummary }) {
   );
 }
 
+function BracketSlotCard({ slot }: { slot: BracketSlotSummary }) {
+  const status = getSlotStatus(slot.status);
+
+  return (
+    <article className="rounded-2xl border border-white/10 bg-iron-950/55 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="text-xs font-bold text-stone-500">Slot {slot.slotIndex}</span>
+        <StatusBadge label={status.label} tone={status.tone} />
+      </div>
+      <div className="grid gap-2">
+        <span className={slot.status === "bye" ? "font-black text-brass-200" : "font-black text-stone-100"}>
+          {slot.playerName ?? "待定"}
+        </span>
+        {slot.sourceMatchLabel ? (
+          <span className="text-xs font-semibold text-stone-500">
+            来源：{slot.sourceMatchLabel}
+          </span>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 function PlayerLine({
   isWinner,
   name,
@@ -116,6 +157,21 @@ function PlayerLine({
   );
 }
 
+function groupSlotsByRound(slots: BracketSlotSummary[]) {
+  const grouped = slots.reduce<Record<number, BracketSlotSummary[]>>((acc, slot) => {
+    acc[slot.round] = [...(acc[slot.round] ?? []), slot];
+    return acc;
+  }, {});
+
+  return Object.keys(grouped)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((round) => ({
+      round,
+      slots: grouped[round].slice().sort((a, b) => a.slotIndex - b.slotIndex)
+    }));
+}
+
 function groupMatchesByRound(matches: MatchSummary[]) {
   const grouped = matches.reduce<Record<number, MatchSummary[]>>((acc, match) => {
     acc[match.round] = [...(acc[match.round] ?? []), match];
@@ -129,6 +185,20 @@ function groupMatchesByRound(matches: MatchSummary[]) {
       round,
       matches: grouped[round].slice().sort((a, b) => a.id.localeCompare(b.id))
     }));
+}
+
+function getSlotStatus(status: BracketSlotSummary["status"]) {
+  if (status === "bye") {
+    return { label: "轮空", tone: "brass" as const };
+  }
+  if (status === "advanced") {
+    return { label: "晋级", tone: "green" as const };
+  }
+  if (status === "occupied") {
+    return { label: "落位", tone: "muted" as const };
+  }
+
+  return { label: "待定", tone: "muted" as const };
 }
 
 function getBracketStatus(event: TournamentEventSummary | undefined, matches: MatchSummary[]) {
@@ -200,6 +270,19 @@ function getByeNotices(entries: TournamentEventEntrySummary[], matches: MatchSum
   }
 
   return notices;
+}
+
+function getSlotByeNotices(slots: BracketSlotSummary[]) {
+  return groupSlotsByRound(slots).flatMap((round) => {
+    const byeNames = round.slots
+      .filter((slot) => slot.status === "bye")
+      .map((slot) => slot.playerName ?? "待定");
+    if (byeNames.length === 0) {
+      return [];
+    }
+
+    return [`第 ${round.round} 轮轮空：${byeNames.join("、")}。`];
+  });
 }
 
 function getPendingByeNames(
