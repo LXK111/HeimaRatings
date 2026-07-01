@@ -64,6 +64,7 @@
 | v5.8 | 2026-07-01 | Codex | 执行阶段 45，新增多武器公开页真库验收 |
 | v5.9 | 2026-07-01 | Codex | 执行阶段 46，扩展更多管理端真实表单权限验收 |
 | v6.0 | 2026-07-01 | Codex | 执行阶段 47，扩展管理端行内编辑表单权限验收 |
+| v6.1 | 2026-07-01 | Codex | 执行阶段 48，新增 Ranking Engine 输入输出回归测试 |
 
 ## 1. 文档目的
 
@@ -1656,3 +1657,29 @@ HeimaRatings/
 方案变化：
 
 - Supabase 浏览器验收从新增表单写权限推进到编辑表单更新权限；后续质量主线转向 Ranking Engine 输入输出回归和完整签位模型。
+
+### 阶段 48：Ranking Engine 输入输出回归测试
+
+方案细节：
+
+- 阶段 48 的目标是给 Ranking Engine 增加独立输入输出回归测试。
+- 排名计算只应该消费真实发生的比赛；轮空是签表状态，不应进入 Ranking Engine 输入。
+- 本阶段直接调用现有 Python runner，不启动 Next.js 服务，不依赖 Supabase。
+- 固定输入回归验证排名输出结构、胜负场次和同一输入的核心输出稳定性。
+- 轮空边界回归验证轮空选手不出现在输入 matches 中，也不会获得虚拟 matches、wins 或 losses。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_ranking_engine_regression.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run ranking:verify`。
+- 已创建 `HeimaRatings/docs/stage-48.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_ranking_engine_regression.mjs`：通过，脚本语法无错误。
+- `npm run ranking:verify`：通过，固定输入输出和轮空排除回归通过。
+
+方案变化：
+
+- 排名质量保障从 smoke 级 API 调用推进到独立 Ranking Engine 回归；后续可继续补 API/Repository 级输入构造回归。
