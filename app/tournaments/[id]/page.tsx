@@ -5,7 +5,10 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import type { LifecycleStatus, TournamentFormat, WeaponType } from "@/lib/domain/types";
 import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
-import { createTournamentEventAction } from "@/lib/server/tournament-event-actions";
+import {
+  createTournamentEventAction,
+  updateTournamentEventAction
+} from "@/lib/server/tournament-event-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -105,6 +108,31 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
               </div>
               <p className="mt-5 text-3xl font-black text-stone-50">{event.matchCount}</p>
               <p className="mt-2 text-sm text-stone-400">项目比赛数</p>
+              <form
+                action={updateTournamentEventAction}
+                className="mt-5 grid gap-3 border-t border-white/10 pt-5 md:grid-cols-[1.3fr_1fr_1fr_0.8fr_auto]"
+              >
+                <input name="tournamentId" type="hidden" value={id} />
+                <input name="id" type="hidden" value={event.id} />
+                <label className="grid gap-1 text-xs font-bold text-stone-400">
+                  项目名称
+                  <input
+                    className="h-10 rounded-2xl border border-white/10 bg-iron-950 px-3 text-sm text-stone-50 outline-none transition focus:border-brass-400"
+                    defaultValue={event.name}
+                    name="name"
+                    required
+                  />
+                </label>
+                <WeaponSelect defaultValue={event.weaponTypeId} weaponTypes={weaponTypes} compact />
+                <TournamentFormatSelect defaultValue={event.format} compact />
+                <EventStatusSelect defaultValue={event.status} compact />
+                <button
+                  className="h-10 self-end rounded-2xl border border-brass-400/40 px-4 text-xs font-black text-brass-300 transition hover:border-brass-300 hover:text-brass-100"
+                  type="submit"
+                >
+                  保存
+                </button>
+              </form>
             </Panel>
           );
         })}
