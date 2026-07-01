@@ -5,6 +5,7 @@ import {
   createMatchDraft,
   getPublicRankingPage,
   getRankingSnapshot,
+  listPublicRankingPages,
   getTournament,
   listTournamentEventEntries,
   listPlayers,
@@ -373,6 +374,10 @@ export class MockRepository implements AppRepository {
       leaderRating: 0,
       items: [] satisfies RankingRow[]
     };
+  }
+
+  async listPublicRankingPages() {
+    return listPublicRankingPages();
   }
 
   async getPublicRankingPage(pageId: string) {

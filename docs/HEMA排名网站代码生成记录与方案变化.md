@@ -55,6 +55,7 @@
 | v4.9 | 2026-07-01 | Codex | 执行阶段 36，新增签表可视化 |
 | v5.0 | 2026-07-01 | Codex | 执行阶段 37，新增轮空与奇数晋级提示 |
 | v5.1 | 2026-07-01 | Codex | 执行阶段 38，新增签表/项目排名真库验收脚本 |
+| v5.2 | 2026-07-01 | Codex | 执行阶段 39，新增公开页发布目标选择 |
 
 ## 1. 文档目的
 
@@ -1384,3 +1385,34 @@ HeimaRatings/
 方案变化：
 
 - 阶段验收从“功能已能在 Mock 模式通过”推进到“核心签表和项目排名写入路径可被真库约束脚本覆盖”，降低后续真实组织数据串线风险。
+
+### 阶段 39：公开页发布目标选择
+
+方案细节：
+
+- 阶段 39 的目标是移除比赛录入页发布公开榜单时固定 `demo` 的运营风险。
+- 公开页发布目标属于当前组织配置，不应硬编码在客户端发布流程里。
+- Repository 新增只读的公开页摘要列表，页面层只消费 `pageId`、标题和状态。
+- 发布写入仍复用现有 `/api/rankings/calculate`，避免为同一业务动作增加第二套写入口。
+- Mock 模式保留 `demo` 兜底，使本地 smoke 和历史演示路径继续可用。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/lib/domain/types.ts`，新增 `PublicRankingPageSummary`。
+- 已更新 `HeimaRatings/lib/server/repositories/types.ts`，新增公开页摘要列表契约。
+- 已更新 `HeimaRatings/lib/server/mock-repository.ts` 和 `HeimaRatings/lib/server/repositories/mock.ts`，补齐 Mock 公开页摘要读取。
+- 已更新 `HeimaRatings/lib/server/repositories/supabase.ts`，新增当前组织已启用公开页读取。
+- 已更新 `HeimaRatings/app/tournaments/[id]/matches/page.tsx`，服务端加载公开页列表。
+- 已更新 `HeimaRatings/components/matches/match-workbench.tsx` 和 `HeimaRatings/components/matches/ranking-control-panel.tsx`，新增发布目标选择和发布成功回显。
+- 已创建 `HeimaRatings/docs/stage-39.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和遗留 TODO。
+
+验证记录：
+
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+
+方案变化：
+
+- 榜单发布从“固定写入 demo 公开页”推进到“由当前组织公开页配置决定发布目标”，降低多公开页运营误发布风险。

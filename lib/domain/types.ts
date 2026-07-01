@@ -137,6 +137,16 @@ export interface PublicPage {
   updatedAt: string;
 }
 
+export interface PublicRankingPageSummary {
+  pageId: string;
+  title: string;
+  enabled: boolean;
+  theme: PublicPageTheme;
+  tournamentId: string;
+  defaultWeaponTypeId?: string;
+  updatedAt?: string;
+}
+
 export interface RankingEnginePlayerInput {
   id: string;
   name: string;

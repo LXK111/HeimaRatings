@@ -1,6 +1,7 @@
 import type {
   MatchSummary,
   PublicRankingPagePayload,
+  PublicRankingPageSummary,
   RankingAlgorithm,
   RankingEngineInput
 } from "@/lib/domain/types";
@@ -87,6 +88,25 @@ export function getPublicRankingPage(pageId: string): PublicRankingPagePayload |
     embedUrl,
     iframeCode: `<iframe src="${embedUrl}" title="HEMA Rankings" width="100%" height="640" style="border:0;border-radius:24px;"></iframe>`
   };
+}
+
+export function listPublicRankingPages(): PublicRankingPageSummary[] {
+  const page = getPublicRankingPage("demo");
+  if (!page) {
+    return [];
+  }
+
+  return [
+    {
+      pageId: page.pageId,
+      title: page.title,
+      enabled: page.enabled,
+      theme: page.theme,
+      tournamentId: "demo",
+      defaultWeaponTypeId: page.defaultWeaponTypeId,
+      updatedAt: page.generatedAt
+    }
+  ];
 }
 
 export function createMatchDraft(tournamentId: string, body: unknown) {

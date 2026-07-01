@@ -4,6 +4,7 @@ import type {
   OrganizationMembership,
   PlayerSummary,
   PublicRankingPagePayload,
+  PublicRankingPageSummary,
   LifecycleStatus,
   RankingAlgorithm,
   RankingEngineInput,
@@ -170,5 +171,6 @@ export interface AppRepository {
     input: CreateRankingSnapshotInput,
     output: RankingEngineOutput
   ): Promise<RankingSnapshotPayload>;
+  listPublicRankingPages(): Promise<PublicRankingPageSummary[]>;
   getPublicRankingPage(pageId: string): Promise<PublicRankingPagePayload | undefined>;
 }

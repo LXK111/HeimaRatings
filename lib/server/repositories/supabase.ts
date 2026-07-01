@@ -2,6 +2,7 @@ import type {
   MatchSummary,
   PlayerSummary,
   PublicRankingPagePayload,
+  PublicRankingPageSummary,
   RankingEngineMatchInput,
   RankingEngineOutput,
   RankingRow,
@@ -1035,6 +1036,31 @@ export class SupabaseRepository implements AppRepository {
     }
 
     return this.getRankingSnapshot(snapshot.id);
+  }
+
+  async listPublicRankingPages(): Promise<PublicRankingPageSummary[]> {
+    const organizationId = await this.getOrganizationId();
+    const pages = await this.query<PublicPageRow[]>(
+      (await this.getClient())
+        .from("public_pages")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("enabled", true)
+        .order("updated_at", { ascending: false }),
+      "listPublicRankingPages"
+    );
+
+    return pages.map((page) => ({
+      pageId: page.page_id,
+      title: page.title,
+      enabled: page.enabled,
+      theme: page.theme,
+      tournamentId: toPublicId(page.tournament_id),
+      defaultWeaponTypeId: page.default_weapon_type_id
+        ? toPublicId(page.default_weapon_type_id)
+        : undefined,
+      updatedAt: page.updated_at
+    }));
   }
 
   async getPublicRankingPage(pageId: string) {

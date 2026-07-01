@@ -3,6 +3,7 @@
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type {
+  PublicRankingPageSummary,
   RankingAlgorithm,
   RankingRow,
   RankingSnapshotSummary,
@@ -21,6 +22,8 @@ interface RankingControlPanelProps {
   isPublishing: boolean;
   message: string;
   publishedSnapshot?: RankingSnapshotSummary & { items: RankingRow[] };
+  publishPageId: string;
+  publicPages: PublicRankingPageSummary[];
   rankingRows: RankingRow[];
   selectedWeapon?: WeaponType;
   weaponTypeId: string;
@@ -28,6 +31,7 @@ interface RankingControlPanelProps {
   onAlgorithmChange(value: RankingAlgorithm): void;
   onCalculate(): void;
   onPublish(): void;
+  onPublishPageIdChange(value: string): void;
   onWeaponTypeIdChange(value: string): void;
 }
 
@@ -42,6 +46,8 @@ export function RankingControlPanel({
   isPublishing,
   message,
   publishedSnapshot,
+  publishPageId,
+  publicPages,
   rankingRows,
   selectedWeapon,
   weaponTypeId,
@@ -49,11 +55,15 @@ export function RankingControlPanel({
   onAlgorithmChange,
   onCalculate,
   onPublish,
+  onPublishPageIdChange,
   onWeaponTypeIdChange
 }: RankingControlPanelProps) {
+  const selectedPublicPage =
+    publicPages.find((page) => page.pageId === publishPageId) ?? publicPages[0];
+
   return (
     <Panel eyebrow="Ranking Engine" title="计算与发布排名">
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto_auto]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto_auto]">
         <label className="grid gap-2 text-sm font-bold text-stone-300">
           计算武器
           <select
@@ -78,6 +88,20 @@ export function RankingControlPanel({
             {algorithms.map((item) => (
               <option key={item.value} value={item.value}>
                 {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-2 text-sm font-bold text-stone-300">
+          发布目标
+          <select
+            className={inputClassName}
+            onChange={(event) => onPublishPageIdChange(event.target.value)}
+            value={publishPageId}
+          >
+            {publicPages.map((page) => (
+              <option key={page.pageId} value={page.pageId}>
+                {page.title}
               </option>
             ))}
           </select>
@@ -113,7 +137,9 @@ export function RankingControlPanel({
 
       {publishedSnapshot ? (
         <div className="mt-4 rounded-2xl border border-white/10 bg-iron-950/60 p-4 text-sm text-stone-300">
-          <p className="font-black text-stone-50">公开页：/public/rankings/demo</p>
+          <p className="font-black text-stone-50">
+            公开页：/public/rankings/{selectedPublicPage?.pageId ?? publishPageId}
+          </p>
           <p className="mt-2">
             当前快照：{publishedSnapshot.id}，生成时间{" "}
             {new Date(publishedSnapshot.generatedAt).toLocaleString()}。

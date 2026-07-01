@@ -9,6 +9,7 @@ import { RankingControlPanel } from "@/components/matches/ranking-control-panel"
 import type {
   MatchSummary,
   PlayerSummary,
+  PublicRankingPageSummary,
   RankingAlgorithm,
   RankingEngineInput,
   RankingEngineOutput,
@@ -22,6 +23,7 @@ import type {
 interface MatchWorkbenchProps {
   events: TournamentEventSummary[];
   players: PlayerSummary[];
+  publicPages: PublicRankingPageSummary[];
   tournamentId: string;
   weapons: WeaponType[];
 }
@@ -54,9 +56,29 @@ const algorithms: Array<{ label: string; value: RankingAlgorithm }> = [
 const inputClass =
   "w-full rounded-2xl border border-white/10 bg-iron-950/70 px-4 py-3 text-sm font-semibold text-stone-100 outline-none transition focus:border-brass-500/70 focus:ring-2 focus:ring-brass-500/20";
 
-export function MatchWorkbench({ events, players, tournamentId, weapons }: MatchWorkbenchProps) {
+const fallbackPublicPages: PublicRankingPageSummary[] = [
+  {
+    pageId: "demo",
+    title: "HEMA 春季积分赛公开榜单",
+    enabled: true,
+    theme: "dark",
+    tournamentId: "demo"
+  }
+];
+
+export function MatchWorkbench({
+  events,
+  players,
+  publicPages,
+  tournamentId,
+  weapons
+}: MatchWorkbenchProps) {
   const activeEvents = events;
   const enabledWeapons = weapons.filter((weapon) => weapon.enabled);
+  const publishTargets = useMemo(
+    () => (publicPages.length > 0 ? publicPages : fallbackPublicPages),
+    [publicPages]
+  );
   const [matches, setMatches] = useState<MatchSummary[]>([]);
   const [eventId, setEventId] = useState(activeEvents[0]?.id ?? "");
   const [round, setRound] = useState("1");
@@ -70,6 +92,7 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
   const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
   const [generatedAt, setGeneratedAt] = useState("");
   const [publishedSnapshot, setPublishedSnapshot] = useState<PublishRankingResponse["snapshot"]>();
+  const [publishPageId, setPublishPageId] = useState(publishTargets[0]?.pageId ?? "demo");
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingMatchId, setIsUpdatingMatchId] = useState("");
@@ -81,6 +104,8 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
 
   const selectedEvent = activeEvents.find((event) => event.id === eventId) ?? activeEvents[0];
   const selectedWeapon = weapons.find((weapon) => weapon.id === weaponTypeId) ?? enabledWeapons[0];
+  const selectedPublishPage =
+    publishTargets.find((page) => page.pageId === publishPageId) ?? publishTargets[0];
   const eventWeapon = weapons.find((weapon) => weapon.id === selectedEvent?.weaponTypeId);
   const selectedEventMatches = selectedEvent
     ? matches.filter((match) => match.eventId === selectedEvent.id)
@@ -142,6 +167,12 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
     setPlayer1Name(selectablePlayers[0]?.name ?? "");
     setPlayer2Name(selectablePlayers[1]?.name ?? "");
   }, [selectablePlayers]);
+
+  useEffect(() => {
+    if (!publishTargets.some((page) => page.pageId === publishPageId)) {
+      setPublishPageId(publishTargets[0]?.pageId ?? "demo");
+    }
+  }, [publishPageId, publishTargets]);
 
   async function submitMatch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -323,6 +354,10 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
       setError("请先计算排名，再发布公开榜单。");
       return;
     }
+    if (!selectedPublishPage) {
+      setError("请选择公开页发布目标。");
+      return;
+    }
 
     setIsPublishing(true);
     try {
@@ -334,7 +369,7 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
           weaponTypeId,
           tournamentId,
           persistSnapshot: true,
-          publishPageId: "demo"
+          publishPageId: selectedPublishPage.pageId
         })
       });
       const payload = (await response.json()) as ApiResponse<PublishRankingResponse>;
@@ -345,7 +380,9 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
       setRankingRows(toRankingRows(payload.data.result));
       setGeneratedAt(payload.data.result.generatedAt);
       setPublishedSnapshot(payload.data.snapshot);
-      setMessage(`公开榜单已发布，快照 ${payload.data.snapshot.id} 已成为 demo 页面最新版本。`);
+      setMessage(
+        `公开榜单已发布，快照 ${payload.data.snapshot.id} 已成为 ${selectedPublishPage.title} 最新版本。`
+      );
     } catch (publishError) {
       setError(publishError instanceof Error ? publishError.message : "榜单发布失败");
     } finally {
@@ -506,6 +543,8 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
         isPublishing={isPublishing}
         message={message}
         publishedSnapshot={publishedSnapshot}
+        publishPageId={publishPageId}
+        publicPages={publishTargets}
         rankingRows={rankingRows}
         selectedWeapon={selectedWeapon}
         weaponTypeId={weaponTypeId}
@@ -513,6 +552,7 @@ export function MatchWorkbench({ events, players, tournamentId, weapons }: Match
         onAlgorithmChange={setAlgorithm}
         onCalculate={calculateRankings}
         onPublish={publishRankings}
+        onPublishPageIdChange={setPublishPageId}
         onWeaponTypeIdChange={setWeaponTypeId}
       />
     </div>
