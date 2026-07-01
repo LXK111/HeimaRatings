@@ -323,11 +323,15 @@ async function verifyEditorManagementForms(page, url) {
     label: "editor event entry form write",
     expectOk: true
   });
+  const editorSeed = await verifyEditorInlineEditForms(page, url, {
+    eventName,
+    playerName,
+    tournamentName,
+    weaponName
+  });
 
   console.log("editor management forms: ok");
-  return {
-    eventName
-  };
+  return editorSeed;
 }
 
 async function verifyViewerManagementFormDenials(page, url, editorSeed) {
@@ -380,8 +384,113 @@ async function verifyViewerManagementFormDenials(page, url, editorSeed) {
     label: "viewer event entry form write denial",
     expectOk: false
   });
+  await verifyViewerInlineEditFormDenials(page, url, editorSeed);
 
   console.log("viewer management form denials: ok");
+}
+
+async function verifyEditorInlineEditForms(page, url, seed) {
+  const suffix = randomSuffix();
+  const nextWeaponName = `${seed.weaponName} 编辑`;
+  const nextPlayerName = `${seed.playerName} 编辑`;
+  const nextTournamentName = `${seed.tournamentName} 编辑`;
+  const nextEventName = `${seed.eventName} 编辑`;
+
+  await submitInlineEditForm(page, url, {
+    path: "/weapons",
+    rowText: seed.weaponName,
+    formText: "名称",
+    fields: [{ label: "名称", value: nextWeaponName }],
+    expectedText: nextWeaponName,
+    expectOk: true,
+    label: "editor weapon inline edit"
+  });
+  await submitInlineEditForm(page, url, {
+    path: "/players",
+    rowText: seed.playerName,
+    formText: "姓名",
+    fields: [
+      { label: "姓名", value: nextPlayerName },
+      { label: "俱乐部", value: `Stage47 Club ${suffix}` }
+    ],
+    expectedText: nextPlayerName,
+    expectOk: true,
+    label: "editor player inline edit"
+  });
+  await submitInlineEditForm(page, url, {
+    path: "/tournaments",
+    rowText: seed.tournamentName,
+    formText: "名称",
+    fields: [{ label: "名称", value: nextTournamentName }],
+    expectedText: nextTournamentName,
+    expectOk: true,
+    label: "editor tournament inline edit"
+  });
+  await submitInlineEditForm(page, url, {
+    path: "/tournaments/demo/events",
+    rowText: seed.eventName,
+    formText: "项目名称",
+    fields: [{ label: "项目名称", value: nextEventName }],
+    expectedText: nextEventName,
+    expectOk: true,
+    label: "editor tournament event inline edit"
+  });
+  await submitEntryInlineEditForm(page, url, {
+    eventName: nextEventName,
+    expectOk: true,
+    label: "editor event entry inline edit"
+  });
+
+  console.log("editor inline edit forms: ok");
+  return {
+    eventName: nextEventName,
+    playerName: nextPlayerName,
+    tournamentName: nextTournamentName,
+    weaponName: nextWeaponName
+  };
+}
+
+async function verifyViewerInlineEditFormDenials(page, url, seed) {
+  const suffix = randomSuffix();
+  await submitInlineEditForm(page, url, {
+    path: "/weapons",
+    rowText: seed.weaponName,
+    formText: "名称",
+    fields: [{ label: "名称", value: `${seed.weaponName} Viewer ${suffix}` }],
+    expectOk: false,
+    label: "viewer weapon inline edit denial"
+  });
+  await submitInlineEditForm(page, url, {
+    path: "/players",
+    rowText: seed.playerName,
+    formText: "姓名",
+    fields: [{ label: "姓名", value: `${seed.playerName} Viewer ${suffix}` }],
+    expectOk: false,
+    label: "viewer player inline edit denial"
+  });
+  await submitInlineEditForm(page, url, {
+    path: "/tournaments",
+    rowText: seed.tournamentName,
+    formText: "名称",
+    fields: [{ label: "名称", value: `${seed.tournamentName} Viewer ${suffix}` }],
+    expectOk: false,
+    label: "viewer tournament inline edit denial"
+  });
+  await submitInlineEditForm(page, url, {
+    path: "/tournaments/demo/events",
+    rowText: seed.eventName,
+    formText: "项目名称",
+    fields: [{ label: "项目名称", value: `${seed.eventName} Viewer ${suffix}` }],
+    expectOk: false,
+    label: "viewer tournament event inline edit denial"
+  });
+  await submitEntryInlineEditForm(page, url, {
+    eventName: seed.eventName,
+    expectOk: false,
+    label: "viewer event entry inline edit denial"
+  });
+
+  console.log("viewer inline edit form denials: ok");
 }
 
 async function submitCreateForm(
@@ -425,6 +534,51 @@ async function submitEntryForm(page, url, { eventName, expectOk, label }) {
   await form.getByLabel("种子").fill(expectOk ? "1" : "2");
 
   const response = await submitServerActionForm(page, form, path, "加入");
+  if (expectOk) {
+    assertSuccessfulActionResponse(response, label);
+  } else {
+    assertDeniedActionResponse(response, label);
+  }
+}
+
+async function submitInlineEditForm(
+  page,
+  url,
+  { path, rowText, formText, fields, expectedText, expectOk, label }
+) {
+  await page.goto(new URL(path, url).toString(), { waitUntil: "networkidle" });
+  await expectText(page, rowText, `${label} page`);
+  const row = page.locator("tr").filter({ hasText: rowText }).first();
+  await row.waitFor({ state: "visible", timeout: 5000 });
+  const form = row.locator("form").filter({ hasText: formText }).last();
+  await form.waitFor({ state: "visible", timeout: 5000 });
+
+  for (const field of fields) {
+    await form.getByLabel(field.label).fill(field.value);
+  }
+
+  const response = await submitServerActionForm(page, form, path, "保存");
+  if (expectOk) {
+    assertSuccessfulActionResponse(response, label);
+    if (expectedText) {
+      await expectText(page, expectedText, label, 15000);
+    }
+  } else {
+    assertDeniedActionResponse(response, label);
+  }
+}
+
+async function submitEntryInlineEditForm(page, url, { eventName, expectOk, label }) {
+  const path = "/tournaments/demo/events";
+  await page.goto(new URL(path, url).toString(), { waitUntil: "networkidle" });
+  await expectText(page, eventName, `${label} page`);
+  const row = page.locator("tr").filter({ hasText: eventName }).first();
+  await row.waitFor({ state: "visible", timeout: 5000 });
+  const form = row.locator("form").filter({ hasText: "状态" }).first();
+  await form.waitFor({ state: "visible", timeout: 5000 });
+  await form.getByLabel("种子").fill(expectOk ? "3" : "4");
+
+  const response = await submitServerActionForm(page, form, path, "保存");
   if (expectOk) {
     assertSuccessfulActionResponse(response, label);
   } else {

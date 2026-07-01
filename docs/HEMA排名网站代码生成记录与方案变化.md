@@ -63,6 +63,7 @@
 | v5.7 | 2026-07-01 | Codex | 执行阶段 44，新增自动轮空落位最小闭环 |
 | v5.8 | 2026-07-01 | Codex | 执行阶段 45，新增多武器公开页真库验收 |
 | v5.9 | 2026-07-01 | Codex | 执行阶段 46，扩展更多管理端真实表单权限验收 |
+| v6.0 | 2026-07-01 | Codex | 执行阶段 47，扩展管理端行内编辑表单权限验收 |
 
 ## 1. 文档目的
 
@@ -1627,3 +1628,31 @@ HeimaRatings/
 方案变化：
 
 - Supabase 浏览器验收从单个比赛录入表单推进到多管理端表单真实点击路径；列表行内编辑表单留到后续阶段。
+
+### 阶段 47：管理端行内编辑表单权限验收
+
+方案细节：
+
+- 阶段 47 的目标是把 viewer/editor 权限边界从新增表单扩展到列表行内编辑表单。
+- editor 账号在阶段 46 创建的数据基础上继续执行行内编辑保存。
+- viewer 账号尝试编辑同一批行时必须被 RLS 拒绝。
+- 本阶段覆盖武器、选手、赛事、比赛项目和项目参赛名单的行内编辑表单。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/scripts/verify_management_auth_browser_e2e.mjs`：
+  - 新增 editor 行内编辑验收。
+  - 新增 viewer 行内编辑拒绝验收。
+  - 新增通用 `submitInlineEditForm()` 和 `submitEntryInlineEditForm()`。
+- 已创建 `HeimaRatings/docs/stage-47.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_management_auth_browser_e2e.mjs`：通过，脚本语法无错误。
+- `npm run check`：通过，TypeScript 无错误。
+- `npm run auth:browser:verify`：通过，已验证 editor 行内编辑保存和 viewer 行内编辑拒绝。
+
+方案变化：
+
+- Supabase 浏览器验收从新增表单写权限推进到编辑表单更新权限；后续质量主线转向 Ranking Engine 输入输出回归和完整签位模型。
