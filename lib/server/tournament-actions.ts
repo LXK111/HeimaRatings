@@ -36,6 +36,15 @@ export async function updateTournamentAction(formData: FormData) {
   revalidatePath("/tournaments");
 }
 
+export async function deleteTournamentAction(formData: FormData) {
+  const repository = await getRequestRepository(await getServerRepositoryContext());
+
+  // 关键路径：删除赛事会级联移除其比赛项目、报名名单、签表、比赛记录和快照。
+  await repository.deleteTournament(readFormText(formData, "id"));
+  revalidatePath("/");
+  revalidatePath("/tournaments");
+}
+
 function readFormText(formData: FormData, fieldName: string) {
   const value = formData.get(fieldName);
   if (typeof value !== "string") {

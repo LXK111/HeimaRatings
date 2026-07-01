@@ -145,6 +145,7 @@ export interface AppRepository {
   listTournaments(): Promise<TournamentSummary[]>;
   createTournament(input: CreateTournamentInput): Promise<TournamentSummary>;
   updateTournament(input: UpdateTournamentInput): Promise<TournamentSummary>;
+  deleteTournament(id: string): Promise<void>;
   getTournament(id: string): Promise<TournamentSummary | undefined>;
   listTournamentEvents(tournamentId: string): Promise<TournamentEventSummary[]>;
   createTournamentEvent(tournamentId: string, input: CreateTournamentEventInput): Promise<TournamentEventSummary>;

@@ -5,7 +5,11 @@ import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
-import { createTournamentAction, updateTournamentAction } from "@/lib/server/tournament-actions";
+import {
+  createTournamentAction,
+  deleteTournamentAction,
+  updateTournamentAction
+} from "@/lib/server/tournament-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +81,7 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
         title="赛事列表"
       >
         <DataTable
-          columns={["赛事", "状态", "赛制", "项目/比赛", "编辑"]}
+          columns={["赛事", "状态", "赛制", "项目/比赛", "操作", "编辑"]}
           rows={tournaments.map((tournament) => [
             <div className="grid gap-2" key="name">
               <span className="font-black text-stone-50">{tournament.name}</span>
@@ -90,6 +94,18 @@ export default async function TournamentsPage({ searchParams }: TournamentsPageP
             />,
             getFormatLabel(tournament.format),
             `${tournament.eventCount} / ${tournament.matchCount}`,
+            <div className="flex min-w-[220px] flex-wrap gap-2" key="actions">
+              <ActionLink href={`/tournaments/${tournament.id}/entries`}>参赛名单</ActionLink>
+              <form action={deleteTournamentAction}>
+                <input name="id" type="hidden" value={tournament.id} />
+                <button
+                  className="inline-flex items-center rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs font-black text-red-200 transition hover:border-red-400 hover:bg-red-500/20"
+                  type="submit"
+                >
+                  删除赛事
+                </button>
+              </form>
+            </div>,
             <form
               action={updateTournamentAction}
               className="grid min-w-[760px] grid-cols-[1.2fr_1fr_0.8fr_0.8fr_1fr_1fr_auto] items-end gap-3"

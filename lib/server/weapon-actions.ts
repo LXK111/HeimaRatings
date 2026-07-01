@@ -11,8 +11,7 @@ export async function createWeaponAction(formData: FormData) {
   await repository.createWeapon({
     name: readFormText(formData, "name"),
     slug: readFormText(formData, "slug"),
-    enabled: formData.get("enabled") === "on",
-    sortOrder: readOptionalFormNumber(formData, "sortOrder")
+    enabled: formData.get("enabled") === "on"
   });
   revalidatePath("/weapons");
 }
@@ -25,8 +24,7 @@ export async function updateWeaponAction(formData: FormData) {
     id: readFormText(formData, "id"),
     name: readFormText(formData, "name"),
     slug: readFormText(formData, "slug"),
-    enabled: formData.get("enabled") === "on",
-    sortOrder: readOptionalFormNumber(formData, "sortOrder")
+    enabled: formData.get("enabled") === "on"
   });
   revalidatePath("/weapons");
 }
@@ -38,18 +36,4 @@ function readFormText(formData: FormData, fieldName: string) {
   }
 
   return value;
-}
-
-function readOptionalFormNumber(formData: FormData, fieldName: string) {
-  const value = formData.get(fieldName);
-  if (typeof value !== "string" || value.trim() === "") {
-    return undefined;
-  }
-
-  const numberValue = Number(value);
-  if (!Number.isFinite(numberValue)) {
-    throw new Error(`${fieldName} must be a number`);
-  }
-
-  return numberValue;
 }

@@ -4,6 +4,7 @@ import {
   appendMatchDrafts,
   buildRankingEngineInput,
   createMatchDraft,
+  deleteTournament,
   getPublicRankingPage,
   getRankingSnapshot,
   listPublicRankingPages,
@@ -159,6 +160,10 @@ export class MockRepository implements AppRepository {
       startedAt: input.startedAt ?? existing.startedAt,
       endedAt: input.endedAt ?? existing.endedAt
     };
+  }
+
+  async deleteTournament(id: string) {
+    deleteTournament(id);
   }
 
   async getTournament(id: string) {

@@ -37,6 +37,22 @@ export function getTournament(id: string) {
   return tournaments.find((tournament) => tournament.id === id);
 }
 
+export function deleteTournament(id: string) {
+  const resolvedId = resolveDemoTournamentId(id);
+  const index = tournaments.findIndex((tournament) => tournament.id === resolvedId);
+  if (index === -1) {
+    throw new Error("Tournament not found");
+  }
+
+  const deletedEventIds = new Set(
+    tournamentEvents.filter((event) => event.tournamentId === resolvedId).map((event) => event.id)
+  );
+  tournaments.splice(index, 1);
+  removeMatching(tournamentEvents, (event) => event.tournamentId === resolvedId);
+  removeMatching(tournamentEventEntries, (entry) => deletedEventIds.has(entry.eventId));
+  removeMatching(matches, (match) => match.tournamentId === resolvedId);
+}
+
 export function listTournamentEvents(tournamentId: string) {
   const resolvedId = resolveDemoTournamentId(tournamentId);
   return tournamentEvents.filter((event) => event.tournamentId === resolvedId);
@@ -270,6 +286,14 @@ export function buildRankingEngineInput(
 
 function resolveDemoTournamentId(tournamentId: string) {
   return tournamentId === "demo" ? "tournament-001" : tournamentId;
+}
+
+function removeMatching<T>(items: T[], predicate: (item: T) => boolean) {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (predicate(items[index])) {
+      items.splice(index, 1);
+    }
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

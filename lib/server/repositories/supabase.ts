@@ -388,6 +388,22 @@ export class SupabaseRepository implements AppRepository {
     return this.getTournamentSummary(updated.id);
   }
 
+  async deleteTournament(id: string) {
+    const organizationId = await this.getOrganizationId();
+    const deleted = await this.query<TournamentRow[]>(
+      (await this.getClient())
+        .from("tournaments")
+        .delete()
+        .eq("id", resolveId(id))
+        .eq("organization_id", organizationId)
+        .select("*"),
+      "deleteTournament"
+    );
+    if (deleted.length === 0) {
+      throw new Error("Tournament not found");
+    }
+  }
+
   async getTournament(id: string) {
     const resolvedId = resolveId(id);
     const tournaments = await this.listTournaments();

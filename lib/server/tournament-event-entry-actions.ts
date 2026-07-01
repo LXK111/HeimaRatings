@@ -15,6 +15,7 @@ export async function createTournamentEventEntryAction(formData: FormData) {
     playerId: readFormText(formData, "playerId"),
     seed: readOptionalFormNumber(formData, "seed")
   });
+  revalidatePath(`/tournaments/${tournamentId}/entries`);
   revalidatePath(`/tournaments/${tournamentId}/events`);
 }
 
@@ -29,6 +30,7 @@ export async function updateTournamentEventEntryAction(formData: FormData) {
     seed: readOptionalFormNumber(formData, "seed"),
     status: readEntryStatus(formData)
   });
+  revalidatePath(`/tournaments/${tournamentId}/entries`);
   revalidatePath(`/tournaments/${tournamentId}/events`);
 }
 

@@ -5,7 +5,6 @@ import {
   BarChart3,
   Globe2,
   Home,
-  ListChecks,
   Swords,
   Trophy,
   UsersRound
@@ -76,13 +75,6 @@ export async function AppShell({
   const managementNavigationItems = showOrganizationSwitcher
     ? [
         ...navigationItems.slice(0, 4),
-        {
-          href: primaryTournament
-            ? `/tournaments/${primaryTournament.id}/events`
-            : "/tournaments?intent=events",
-          label: "比赛项目",
-          icon: ListChecks
-        },
         {
           href: primaryTournament
             ? `/tournaments/${primaryTournament.id}/rankings`
