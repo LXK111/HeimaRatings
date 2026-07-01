@@ -66,6 +66,7 @@
 | v6.0 | 2026-07-01 | Codex | 执行阶段 47，扩展管理端行内编辑表单权限验收 |
 | v6.1 | 2026-07-01 | Codex | 执行阶段 48，新增 Ranking Engine 输入输出回归测试 |
 | v6.2 | 2026-07-01 | Codex | 执行阶段 49，新增 Ranking Engine 输入构造回归测试 |
+| v6.3 | 2026-07-01 | Codex | 执行阶段 50，新增 Supabase 真库 Ranking Engine 输入构造回归验收 |
 
 ## 1. 文档目的
 
@@ -1714,3 +1715,34 @@ HeimaRatings/
 方案变化：
 
 - Ranking Engine 质量保障从算法输入本身推进到 API/Repository 输入构造链路；后续可继续补 Supabase 真库输入构造回归。
+
+### 阶段 50：Supabase 真库 Ranking Engine 输入构造回归验收
+
+方案细节：
+
+- 阶段 50 的目标是验证 Supabase 真库数据经过 Repository 和 `/api/rankings/calculate` 后，Ranking Engine 输入仍只包含真实比赛。
+- 使用 service role 创建临时组织、临时 editor membership、武器、选手、积分、赛事项目、参赛名单和真实比赛。
+- 使用 editor 测试账号登录后调用管理 API，保持真实鉴权路径。
+- 长剑项目验证首轮轮空选手不会获得虚拟比赛。
+- 军刀项目验证项目/武器过滤不会串入长剑选手。
+- 验收结束后删除临时组织，级联清理临时数据。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_supabase_ranking_input_construction.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run ranking:supabase:verify`。
+- 已创建 `HeimaRatings/docs/stage-50.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、运行命令、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_supabase_ranking_input_construction.mjs`：通过，脚本语法无错误。
+- `npm run ranking:supabase:verify`：通过，已验证 Supabase 真库输入构造、真实管理 API 鉴权路径和临时数据清理。
+- `npm run ranking:input:verify`：通过，Mock API/Repository 输入构造回归仍通过。
+- `npm run ranking:verify`：通过，Ranking Engine 直接输入回归仍通过。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- Ranking Engine 质量保障从 Mock API/Repository 路径推进到 Supabase 真库、组织上下文和管理 API 鉴权路径；复杂签位审计继续留给 `bracket_slots` 模型。

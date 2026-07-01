@@ -54,6 +54,7 @@
 | v4.8 | 2026-07-01 | Codex | 更新阶段 47 管理端行内编辑表单权限验收状态 |
 | v4.9 | 2026-07-01 | Codex | 更新阶段 48 Ranking Engine 输入输出回归测试状态 |
 | v5.0 | 2026-07-01 | Codex | 更新阶段 49 Ranking Engine 输入构造回归测试状态 |
+| v5.1 | 2026-07-01 | Codex | 更新阶段 50 Supabase 真库 Ranking Engine 输入构造回归验收状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -81,7 +82,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 49：Ranking Engine 输入构造回归测试。
+当前已推进到阶段 50：Supabase 真库 Ranking Engine 输入构造回归验收。
 
 已完成阶段：
 
@@ -135,6 +136,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 47：扩展 Supabase 浏览器验收，覆盖管理端列表行内编辑表单的 editor 保存和 viewer 拒绝。
 - 阶段 48：新增 Ranking Engine 输入输出回归测试，覆盖固定输入输出稳定性和轮空不进入比赛输入。
 - 阶段 49：新增 API/Repository 级 Ranking Engine 输入构造回归测试，覆盖项目过滤和轮空不生成虚拟比赛。
+- 阶段 50：新增 Supabase 真库 Ranking Engine 输入构造回归验收，覆盖真实组织上下文、管理 API 鉴权和轮空不生成虚拟比赛。
 
 当前阶段边界：
 
@@ -176,6 +178,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run browser:verify` 会构建生产包、启动临时服务，并用浏览器验证核心页面和发布目标控件。
 - `npm run ranking:verify` 会直接调用 Python Ranking Engine，验证固定排名输入输出和轮空排除边界。
 - `npm run ranking:input:verify` 会启动 Mock 临时服务，验证 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
+- `npm run ranking:supabase:verify` 会以 Supabase 模式创建临时组织和赛事数据，验证真库 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run public:verify` 会以 Supabase 模式创建临时多武器公开页，验证公开 API 和浏览器公开页展示后清理临时数据。
 - `npm run auth:browser:verify` 会以 Supabase 模式启动临时服务，用真实 viewer/editor 测试账号验证浏览器登录态、viewer 写权限拒绝、editor 多个真实管理表单提交和行内编辑保存。
 - 公开页和嵌入页的 `AppShell` 不再触发管理端授权上下文，匿名访问不会被重定向到登录页。
@@ -184,7 +187,6 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 ## 后续阶段
 
 - 后续增强：引入完整 `bracket_slots` 模型，支持固定签位、种子位审计和复杂轮空可视化。
-- 后续增强：补充 Supabase 真库 Ranking Engine 输入构造回归测试。
 
 ## 遗留 TODO
 
@@ -257,6 +259,15 @@ npm run auth:api:verify
 
 # Supabase 管理端登录态浏览器验收（需要真库和 editor 测试账号）
 npm run auth:browser:verify
+
+# Ranking Engine 直接输入输出回归
+npm run ranking:verify
+
+# Mock API/Repository Ranking Engine 输入构造回归
+npm run ranking:input:verify
+
+# Supabase 真库 Ranking Engine 输入构造回归（需要真库和 editor 测试账号）
+npm run ranking:supabase:verify
 
 # 真库数据库约束验收（需要 psql 和 DATABASE_URL）
 npm run db:verify
