@@ -49,6 +49,8 @@
 | v4.3 | 2026-07-01 | Codex | 更新阶段 42 viewer 浏览器权限拒绝验收状态 |
 | v4.4 | 2026-07-01 | Codex | 更新阶段 43 真实表单提交路径浏览器权限验收状态 |
 | v4.5 | 2026-07-01 | Codex | 更新阶段 44 自动轮空落位最小闭环状态 |
+| v4.6 | 2026-07-01 | Codex | 更新阶段 45 多武器公开页真库验收状态 |
+| v4.7 | 2026-07-01 | Codex | 更新阶段 46 更多管理端真实表单权限验收状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -76,7 +78,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 44：自动轮空落位最小闭环。
+当前已推进到阶段 46：更多管理端真实表单权限验收。
 
 已完成阶段：
 
@@ -125,6 +127,8 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 42：扩展 Supabase 浏览器验收，覆盖 viewer 登录后可读管理页但无法写入排名快照。
 - 阶段 43：扩展 Supabase 浏览器验收，覆盖 viewer/editor 在比赛录入页真实表单提交路径下的写权限边界。
 - 阶段 44：单败淘汰晋级支持自动轮空落位，奇数晋级候选不再阻断生成下一轮。
+- 阶段 45：新增 Supabase 多武器公开页真库验收，验证一个公开页可同时展示多个武器快照。
+- 阶段 46：扩展 Supabase 浏览器验收，覆盖更多管理端真实新增表单的 editor 写入和 viewer 拒绝。
 
 当前阶段边界：
 
@@ -135,7 +139,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 传入 `publishPageId` 时，Supabase 模式会 upsert 对应 `public_pages` 并指向最新快照。
 - 比赛工作台已区分“重新计算排名”和“发布公开榜单”；发布成功后展示快照 ID 和公开页路径。
 - 比赛工作台已拆分为多个子组件，父组件继续保留业务流程控制。
-- 公开榜单和嵌入榜单已具备从多个武器快照读取排名的代码路径；Supabase 真库需要先执行阶段 13 migration。
+- 公开榜单和嵌入榜单已具备从多个武器快照读取排名的代码路径，且已通过 Supabase 真库临时公开页验收。
 - 管理端首页、武器、选手、赛事、项目、比赛录入和排名页已切换到 Repository 数据源。
 - Supabase Repository 会通过 `HEIMA_RATINGS_ORGANIZATION_SLUG` 解析当前组织，未配置时默认使用 `hema-ratings-demo`。
 - Supabase 模式下武器、选手、赛事、比赛、排名计算、快照发布和公开页读取已按当前组织做应用层隔离。
@@ -164,15 +168,15 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run auth:api:verify` 已覆盖项目参赛名单读取、viewer 签表生成拒绝和 editor 项目级排名快照写入。
 - 比赛录入页的公开榜单发布目标来自当前组织公开页列表；无公开页时保留 `demo` 兜底。
 - `npm run browser:verify` 会构建生产包、启动临时服务，并用浏览器验证核心页面和发布目标控件。
-- `npm run auth:browser:verify` 会以 Supabase 模式启动临时服务，用真实 viewer/editor 测试账号验证浏览器登录态、viewer 写权限拒绝和 editor 真实表单提交。
+- `npm run public:verify` 会以 Supabase 模式创建临时多武器公开页，验证公开 API 和浏览器公开页展示后清理临时数据。
+- `npm run auth:browser:verify` 会以 Supabase 模式启动临时服务，用真实 viewer/editor 测试账号验证浏览器登录态、viewer 写权限拒绝和 editor 多个真实管理表单提交。
 - 公开页和嵌入页的 `AppShell` 不再触发管理端授权上下文，匿名访问不会被重定向到登录页。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
 
-- 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
 - 后续增强：引入完整 `bracket_slots` 模型，支持固定签位、种子位审计和复杂轮空可视化。
-- 后续增强：将 Supabase 浏览器验收扩展到更多管理端真实表单提交路径。
+- 后续增强：将 Supabase 浏览器验收扩展到管理端列表行内编辑表单。
 
 ## 遗留 TODO
 

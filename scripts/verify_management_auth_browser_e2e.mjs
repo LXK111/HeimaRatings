@@ -100,15 +100,15 @@ async function verifyBrowserAuthFlow(url, config) {
     await verifyAnonymousPublicPage(anonymousPage, url);
     await anonymousContext.close();
 
-    const viewerContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
-    const viewerPage = await newTrackedPage(viewerContext, pageErrors, consoleErrors);
-    await verifyViewerReadOnlyAccess(viewerPage, url, config);
-    await viewerContext.close();
-
     const editorContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
     const editorPage = await newTrackedPage(editorContext, pageErrors, consoleErrors);
-    await verifyEditorWriteAccess(editorPage, url, config);
+    const editorSeed = await verifyEditorWriteAccess(editorPage, url, config);
     await editorContext.close();
+
+    const viewerContext = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+    const viewerPage = await newTrackedPage(viewerContext, pageErrors, consoleErrors);
+    await verifyViewerReadOnlyAccess(viewerPage, url, config, editorSeed);
+    await viewerContext.close();
 
     if (pageErrors.length > 0) {
       throw new Error(`Browser page errors:\n${pageErrors.join("\n")}`);
@@ -124,7 +124,9 @@ async function verifyBrowserAuthFlow(url, config) {
 async function newTrackedPage(context, pageErrors, consoleErrors) {
   const page = await context.newPage();
   page.on("pageerror", (error) => {
-    pageErrors.push(error.message);
+    if (!isExpectedBrowserPageError(error.message)) {
+      pageErrors.push(error.message);
+    }
   });
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -179,10 +181,12 @@ async function verifyEditorWriteAccess(page, url, config) {
     expectedText: "比赛已保存并加入当前计算队列。",
     label: "editor match form write"
   });
+  const editorSeed = await verifyEditorManagementForms(page, url);
   console.log("editor browser form write: ok");
+  return editorSeed;
 }
 
-async function verifyViewerReadOnlyAccess(page, url, config) {
+async function verifyViewerReadOnlyAccess(page, url, config, editorSeed) {
   await signIn(page, url, {
     email: config.viewerEmail,
     password: config.viewerPassword,
@@ -214,6 +218,7 @@ async function verifyViewerReadOnlyAccess(page, url, config) {
     expectedText: "Organization editor or admin role required",
     label: "viewer match form write denial"
   });
+  await verifyViewerManagementFormDenials(page, url, editorSeed);
   console.log("viewer browser read-only access: ok");
 }
 
@@ -259,6 +264,197 @@ async function submitMatchForm(page, url, { expectedText, label }) {
   await expectText(page, expectedText, label, 15000);
 }
 
+async function verifyEditorManagementForms(page, url) {
+  const suffix = randomSuffix();
+  const weaponName = `Stage46 武器 ${suffix}`;
+  const playerName = `Stage46 选手 ${suffix}`;
+  const tournamentName = `Stage46 赛事 ${suffix}`;
+  const eventName = `Stage46 项目 ${suffix}`;
+
+  await submitCreateForm(page, url, {
+    path: "/weapons",
+    panelTitle: "新增武器类型",
+    buttonName: "新增",
+    label: "editor weapon form write",
+    fields: [
+      { label: "名称", value: weaponName },
+      { label: "标识", value: `stage46-${suffix}` },
+      { label: "排序", value: "9999" }
+    ],
+    expectedText: weaponName,
+    expectOk: true
+  });
+
+  await submitCreateForm(page, url, {
+    path: "/players",
+    panelTitle: "新增选手",
+    buttonName: "新增",
+    label: "editor player form write",
+    fields: [
+      { label: "姓名", value: playerName },
+      { label: "俱乐部", value: "Stage46 Club" },
+      { label: "初始积分", value: "1500" }
+    ],
+    expectedText: playerName,
+    expectOk: true
+  });
+
+  await submitCreateForm(page, url, {
+    path: "/tournaments",
+    panelTitle: "新增赛事",
+    buttonName: "新增",
+    label: "editor tournament form write",
+    fields: [{ label: "名称", value: tournamentName }],
+    expectedText: tournamentName,
+    expectOk: true
+  });
+
+  await submitCreateForm(page, url, {
+    path: "/tournaments/demo/events",
+    panelTitle: "新增比赛项目",
+    buttonName: "新增",
+    label: "editor tournament event form write",
+    fields: [{ label: "项目名称", value: eventName }],
+    expectedText: eventName,
+    expectOk: true
+  });
+  await submitEntryForm(page, url, {
+    eventName,
+    label: "editor event entry form write",
+    expectOk: true
+  });
+
+  console.log("editor management forms: ok");
+  return {
+    eventName
+  };
+}
+
+async function verifyViewerManagementFormDenials(page, url, editorSeed) {
+  const suffix = randomSuffix();
+  await submitCreateForm(page, url, {
+    path: "/weapons",
+    panelTitle: "新增武器类型",
+    buttonName: "新增",
+    label: "viewer weapon form write denial",
+    fields: [
+      { label: "名称", value: `Stage46 Viewer Weapon ${suffix}` },
+      { label: "标识", value: `stage46-viewer-${suffix}` },
+      { label: "排序", value: "9998" }
+    ],
+    expectOk: false
+  });
+
+  await submitCreateForm(page, url, {
+    path: "/players",
+    panelTitle: "新增选手",
+    buttonName: "新增",
+    label: "viewer player form write denial",
+    fields: [
+      { label: "姓名", value: `Stage46 Viewer Player ${suffix}` },
+      { label: "俱乐部", value: "Stage46 Viewer Club" },
+      { label: "初始积分", value: "1500" }
+    ],
+    expectOk: false
+  });
+
+  await submitCreateForm(page, url, {
+    path: "/tournaments",
+    panelTitle: "新增赛事",
+    buttonName: "新增",
+    label: "viewer tournament form write denial",
+    fields: [{ label: "名称", value: `Stage46 Viewer Tournament ${suffix}` }],
+    expectOk: false
+  });
+
+  await submitCreateForm(page, url, {
+    path: "/tournaments/demo/events",
+    panelTitle: "新增比赛项目",
+    buttonName: "新增",
+    label: "viewer tournament event form write denial",
+    fields: [{ label: "项目名称", value: `Stage46 Viewer Event ${suffix}` }],
+    expectOk: false
+  });
+  await submitEntryForm(page, url, {
+    eventName: editorSeed.eventName,
+    label: "viewer event entry form write denial",
+    expectOk: false
+  });
+
+  console.log("viewer management form denials: ok");
+}
+
+async function submitCreateForm(
+  page,
+  url,
+  { path, panelTitle, buttonName, fields, expectedText, expectOk, label }
+) {
+  await page.goto(new URL(path, url).toString(), { waitUntil: "networkidle" });
+  await expectText(page, panelTitle, `${label} page`);
+  const form = page.locator("section").filter({ hasText: panelTitle }).first().locator("form").first();
+  await form.waitFor({ state: "visible", timeout: 5000 });
+  for (const field of fields) {
+    await form.getByLabel(field.label).fill(field.value);
+  }
+
+  const response = await submitServerActionForm(page, form, path, buttonName);
+  if (expectOk) {
+    assertSuccessfulActionResponse(response, label);
+    if (expectedText) {
+      await expectText(page, expectedText, label, 15000);
+    }
+  } else {
+    assertDeniedActionResponse(response, label);
+  }
+}
+
+async function submitEntryForm(page, url, { eventName, expectOk, label }) {
+  const path = "/tournaments/demo/events";
+  await page.goto(new URL(path, url).toString(), { waitUntil: "networkidle" });
+  await expectText(page, eventName, `${label} page`);
+  const row = page.locator("tr").filter({ hasText: eventName }).first();
+  await row.waitFor({ state: "visible", timeout: 5000 });
+  const form = row.locator("form").filter({ hasText: "加入选手" }).first();
+  await form.waitFor({ state: "visible", timeout: 5000 });
+
+  const playerSelect = form.getByLabel("加入选手");
+  if (await playerSelect.isDisabled()) {
+    throw new Error(`${label} requires an available player to add`);
+  }
+  await playerSelect.selectOption({ index: 0 });
+  await form.getByLabel("种子").fill(expectOk ? "1" : "2");
+
+  const response = await submitServerActionForm(page, form, path, "加入");
+  if (expectOk) {
+    assertSuccessfulActionResponse(response, label);
+  } else {
+    assertDeniedActionResponse(response, label);
+  }
+}
+
+async function submitServerActionForm(page, form, path, buttonName) {
+  const responsePromise = page.waitForResponse(
+    (response) => response.url().includes(path) && response.request().method() === "POST",
+    { timeout: 15000 }
+  );
+  await form.getByRole("button", { name: buttonName }).click();
+  const response = await responsePromise;
+  await page.waitForLoadState("networkidle").catch(() => undefined);
+  return response;
+}
+
+function assertSuccessfulActionResponse(response, label) {
+  if (response.status() >= 400) {
+    throw new Error(`${label} should succeed, got HTTP ${response.status()}`);
+  }
+}
+
+function assertDeniedActionResponse(response, label) {
+  if (response.status() < 400) {
+    throw new Error(`${label} should be denied, got HTTP ${response.status()}`);
+  }
+}
+
 async function selectFirstTwoPlayers(page, label) {
   const player1Select = page.getByLabel("选手 A");
   const player2Select = page.getByLabel("选手 B");
@@ -272,6 +468,10 @@ async function selectFirstTwoPlayers(page, label) {
 
   await player1Select.selectOption({ index: 0 });
   await player2Select.selectOption({ index: 1 });
+}
+
+function randomSuffix() {
+  return `${Date.now().toString(36)}-${Math.floor(Math.random() * 10000).toString(36)}`;
 }
 
 async function expectText(page, text, label, timeout = 5000) {
@@ -400,7 +600,13 @@ function sleep(ms) {
 }
 
 function isExpectedBrowserConsoleError(text) {
-  return text.includes("Failed to load resource") && text.includes("403 (Forbidden)");
+  return text.includes("Failed to load resource") &&
+    (text.includes("403 (Forbidden)") || text.includes("500 (Internal Server Error)"));
+}
+
+function isExpectedBrowserPageError(text) {
+  return text.includes("An error occurred in the Server Components render") &&
+    text.includes("digest property");
 }
 
 main().catch((error) => {

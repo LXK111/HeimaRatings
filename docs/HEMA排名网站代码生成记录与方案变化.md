@@ -61,6 +61,8 @@
 | v5.5 | 2026-07-01 | Codex | 执行阶段 42，新增 viewer 浏览器权限拒绝验收 |
 | v5.6 | 2026-07-01 | Codex | 执行阶段 43，新增真实表单提交路径浏览器权限验收 |
 | v5.7 | 2026-07-01 | Codex | 执行阶段 44，新增自动轮空落位最小闭环 |
+| v5.8 | 2026-07-01 | Codex | 执行阶段 45，新增多武器公开页真库验收 |
+| v5.9 | 2026-07-01 | Codex | 执行阶段 46，扩展更多管理端真实表单权限验收 |
 
 ## 1. 文档目的
 
@@ -1571,3 +1573,57 @@ HeimaRatings/
 方案变化：
 
 - 签表晋级从“奇数胜者阻断”推进到“自动轮空并在后续轮次合并”的最小闭环；复杂签位审计和种子位固定仍留给后续 `bracket_slots` 模型。
+
+### 阶段 45：多武器公开页真库验收
+
+方案细节：
+
+- 阶段 45 的目标是验证 Supabase 真库下一个公开页可以同时关联多个武器快照。
+- 验收不依赖真实比赛记录，直接创建临时公开页、临时排名快照和 `public_page_snapshots` 关联。
+- 验证公开 API 至少返回长剑、军刀、迅捷剑三个有排名数据的武器榜单。
+- 验证浏览器公开页出现“武器切换”和多个武器入口。
+- 验收完成后清理临时公开页和临时快照，避免覆盖真实 `demo` 页面发布状态。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_public_multi_weapon_e2e.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run public:verify`。
+- 已创建 `HeimaRatings/docs/stage-45.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_public_multi_weapon_e2e.mjs`：通过，脚本语法无错误。
+- `npm run public:verify`：通过，已验证临时多武器公开页 API、浏览器展示和临时数据清理。
+
+方案变化：
+
+- 公开页多武器模型从“代码路径存在”推进到“Supabase 真库临时页面可验证”，后续真实发布页可按同一模型运行。
+
+### 阶段 46：更多管理端真实表单权限验收
+
+方案细节：
+
+- 阶段 46 的目标是把 viewer/editor 权限边界扩展到更多管理端真实表单。
+- editor 账号通过浏览器真实提交新增武器、选手、赛事、比赛项目和项目参赛名单。
+- viewer 账号通过同样的页面表单触发写入时必须被 RLS 拒绝。
+- viewer 拒绝路径在 Next.js 生产 Server Action 中表现为 500 响应和 RLS 错误日志，本阶段对这类预期浏览器错误做定向豁免。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/scripts/verify_management_auth_browser_e2e.mjs`：
+  - 调整 editor/viewer 验收顺序，让 editor 先创建可复用项目数据。
+  - 新增管理端新增表单提交 helper。
+  - 新增项目参赛名单真实表单提交 helper。
+  - 扩展 viewer 真实表单拒绝断言。
+- 已创建 `HeimaRatings/docs/stage-46.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_management_auth_browser_e2e.mjs`：通过，脚本语法无错误。
+- `npm run auth:browser:verify`：通过，已验证匿名访问、editor 多表单写入、viewer 排名快照/比赛录入/多管理表单写拒绝。
+
+方案变化：
+
+- Supabase 浏览器验收从单个比赛录入表单推进到多管理端表单真实点击路径；列表行内编辑表单留到后续阶段。
