@@ -436,8 +436,8 @@ export function MatchWorkbench({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           algorithm,
+          scope: "organization",
           weaponTypeId,
-          tournamentId,
           persistSnapshot: true,
           publishPageId: selectedPublishPage.pageId
         })
@@ -451,7 +451,7 @@ export function MatchWorkbench({
       setGeneratedAt(payload.data.result.generatedAt);
       setPublishedSnapshot(payload.data.snapshot);
       setMessage(
-        `公开榜单已发布，快照 ${payload.data.snapshot.id} 已成为 ${selectedPublishPage.title} 最新版本。`
+        `组织长期总榜已发布，快照 ${payload.data.snapshot.id} 已成为 ${selectedPublishPage.title} 最新版本。`
       );
     } catch (publishError) {
       setError(publishError instanceof Error ? publishError.message : "榜单发布失败");

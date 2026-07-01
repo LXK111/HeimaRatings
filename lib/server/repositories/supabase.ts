@@ -944,7 +944,11 @@ export class SupabaseRepository implements AppRepository {
     if (!snapshot) {
       throw new Error("Ranking snapshot not found");
     }
-    await this.ensureTournamentInOrganization(snapshot.tournament_id, "getRankingSnapshot.tournament");
+    if (snapshot.tournament_id) {
+      await this.ensureTournamentInOrganization(snapshot.tournament_id, "getRankingSnapshot.tournament");
+    } else {
+      await this.ensureWeaponInOrganization(snapshot.weapon_type_id, "getRankingSnapshot.weapon");
+    }
 
     const items = await this.query<RankingSnapshotItemRow[]>(
       (await this.getClient())
@@ -1024,13 +1028,18 @@ export class SupabaseRepository implements AppRepository {
 
   async buildRankingEngineInput(options: BuildRankingEngineInputOptions) {
     const algorithm = options.algorithm ?? "hybrid";
-    const tournamentId = resolveId(options.tournamentId ?? demoTournamentId);
+    const scope = options.scope ?? "tournament";
+    const tournamentId = scope === "organization" ? undefined : resolveId(options.tournamentId ?? demoTournamentId);
     const weaponTypeId = resolveId(options.weaponTypeId ?? "weapon-longsword");
     const eventId = options.eventId ? resolveId(options.eventId) : undefined;
-    await this.ensureTournamentInOrganization(tournamentId, "buildRankingEngineInput.tournament");
+    if (tournamentId) {
+      await this.ensureTournamentInOrganization(tournamentId, "buildRankingEngineInput.tournament");
+    }
     await this.ensureWeaponInOrganization(weaponTypeId, "buildRankingEngineInput.weapon");
-    if (eventId) {
+    if (eventId && tournamentId) {
       await this.ensureEventInTournament(eventId, tournamentId, weaponTypeId, "buildRankingEngineInput.event");
+    } else if (eventId) {
+      throw new Error("eventId requires tournament scope");
     }
     const ratings = await this.query<PlayerWeaponRatingRow[]>(
       (await this.getClient()).from("player_weapon_ratings").select("*").eq("weapon_type_id", weaponTypeId),
@@ -1038,24 +1047,30 @@ export class SupabaseRepository implements AppRepository {
     );
     const players = await this.loadPlayersByIds(ratings.map((rating) => rating.player_id));
     const scopedRatings = ratings.filter((rating) => players.has(rating.player_id));
-    let matchesQuery = (await this.getClient())
-      .from("matches")
-      .select("*")
-      .eq("tournament_id", tournamentId)
-      .eq("weapon_type_id", weaponTypeId);
-    if (eventId) {
-      matchesQuery = matchesQuery.eq("event_id", eventId);
+    const matchTournamentIds = tournamentId
+      ? [tournamentId]
+      : await this.listOrganizationTournamentIdsForRanking();
+    let matches: MatchRow[] = [];
+    if (matchTournamentIds.length > 0) {
+      let matchesQuery = (await this.getClient())
+        .from("matches")
+        .select("*")
+        .eq("weapon_type_id", weaponTypeId)
+        .in("tournament_id", matchTournamentIds);
+      if (eventId) {
+        matchesQuery = matchesQuery.eq("event_id", eventId);
+      }
+      matches = await this.query<MatchRow[]>(
+        matchesQuery
+          .order("round", { ascending: true })
+          .order("created_at", { ascending: true }),
+        "buildRankingEngineInput.matches"
+      );
     }
-    const matches = await this.query<MatchRow[]>(
-      matchesQuery
-        .order("round", { ascending: true })
-        .order("created_at", { ascending: true }),
-      "buildRankingEngineInput.matches"
-    );
     const groupedMatches = groupMatchesByRound(matches, players);
 
     return {
-      tournamentId: toPublicId(tournamentId),
+      tournamentId: tournamentId ? toPublicId(tournamentId) : "organization",
       weaponTypeId: toPublicId(weaponTypeId),
       eventId: eventId ? toPublicId(eventId) : undefined,
       algorithm,
@@ -1077,24 +1092,30 @@ export class SupabaseRepository implements AppRepository {
     input: CreateRankingSnapshotInput,
     output: RankingEngineOutput
   ): Promise<RankingSnapshotPayload> {
-    const tournamentId = resolveId(input.tournamentId);
+    const tournamentId = input.tournamentId && input.tournamentId !== "organization"
+      ? resolveId(input.tournamentId)
+      : null;
     const weaponTypeId = resolveId(input.weaponTypeId);
     const eventId = input.eventId ? resolveId(input.eventId) : null;
     const organizationId = await this.getOrganizationId();
     await this.ensureWeaponInOrganization(weaponTypeId, "createRankingSnapshot.weapon");
-    if (eventId) {
+    if (eventId && tournamentId) {
       await this.ensureEventInTournament(eventId, tournamentId, weaponTypeId, "createRankingSnapshot.event");
+    } else if (eventId) {
+      throw new Error("event ranking snapshot requires a tournament");
     }
-    const tournament = await this.querySingle<TournamentRow>(
-      (await this.getClient())
-        .from("tournaments")
-        .select("*")
-        .eq("id", tournamentId)
-        .eq("organization_id", organizationId)
-        .maybeSingle(),
-      "createRankingSnapshot.tournament"
-    );
-    if (!tournament) {
+    const tournament = tournamentId
+      ? await this.querySingle<TournamentRow>(
+          (await this.getClient())
+            .from("tournaments")
+            .select("*")
+            .eq("id", tournamentId)
+            .eq("organization_id", organizationId)
+            .maybeSingle(),
+          "createRankingSnapshot.tournament"
+        )
+      : null;
+    if (tournamentId && !tournament) {
       throw new Error("Tournament not found");
     }
 
@@ -1140,7 +1161,7 @@ export class SupabaseRepository implements AppRepository {
     if (input.publishPageId) {
       const page = await this.findOrCreatePublicPage(
         input.publishPageId,
-        tournament,
+        tournament ?? undefined,
         tournamentId,
         weaponTypeId
       );
@@ -1174,7 +1195,7 @@ export class SupabaseRepository implements AppRepository {
       title: page.title,
       enabled: page.enabled,
       theme: page.theme,
-      tournamentId: toPublicId(page.tournament_id),
+      tournamentId: page.tournament_id ? toPublicId(page.tournament_id) : "organization",
       defaultWeaponTypeId: page.default_weapon_type_id
         ? toPublicId(page.default_weapon_type_id)
         : undefined,
@@ -1429,6 +1450,16 @@ export class SupabaseRepository implements AppRepository {
     }
   }
 
+  private async listOrganizationTournamentIdsForRanking() {
+    const organizationId = await this.getOrganizationId();
+    const tournaments = await this.query<Pick<TournamentRow, "id">[]>(
+      (await this.getClient()).from("tournaments").select("id").eq("organization_id", organizationId),
+      "listOrganizationTournamentIdsForRanking"
+    );
+
+    return tournaments.map((tournament) => tournament.id);
+  }
+
   private async findPlayersByNames(organizationId: string, player1Name: string, player2Name: string) {
     const players = await this.query<PlayerRow[]>(
       (await this.getClient())
@@ -1474,8 +1505,8 @@ export class SupabaseRepository implements AppRepository {
 
   private async findOrCreatePublicPage(
     pageId: string,
-    tournament: TournamentRow,
-    tournamentId: string,
+    tournament: TournamentRow | undefined,
+    tournamentId: string | null,
     weaponTypeId: string
   ) {
     const organizationId = await this.getOrganizationId();
@@ -1520,7 +1551,7 @@ export class SupabaseRepository implements AppRepository {
           tournament_id: tournamentId,
           snapshot_id: null,
           default_weapon_type_id: weaponTypeId,
-          title: `${tournament.name} 公开榜单`,
+          title: tournament ? `${tournament.name} 公开榜单` : "组织长期总榜",
           theme: "dark",
           enabled: true
         })

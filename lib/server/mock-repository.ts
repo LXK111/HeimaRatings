@@ -232,7 +232,8 @@ export function buildRankingEngineInput(
   algorithm: RankingAlgorithm = "hybrid",
   weaponTypeId = "weapon-longsword",
   tournamentId = "tournament-001",
-  eventId?: string
+  eventId?: string,
+  scope: "tournament" | "organization" = "tournament"
 ): RankingEngineInput {
   const playerInputs = players
     .map((player) => {
@@ -254,7 +255,8 @@ export function buildRankingEngineInput(
     })
     .filter((player): player is NonNullable<typeof player> => Boolean(player));
 
-  const groupedMatches = listTournamentMatches(tournamentId)
+  const sourceMatches = scope === "organization" ? matches : listTournamentMatches(tournamentId);
+  const groupedMatches = sourceMatches
     .filter((match) => match.weaponTypeId === weaponTypeId)
     .filter((match) => (eventId ? match.eventId === eventId : true))
     .reduce<Record<number, typeof matches>>((acc, match) => {
@@ -263,7 +265,7 @@ export function buildRankingEngineInput(
     }, {});
 
   return {
-    tournamentId,
+    tournamentId: scope === "organization" ? "organization" : tournamentId,
     weaponTypeId,
     eventId,
     algorithm,

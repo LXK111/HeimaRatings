@@ -123,7 +123,7 @@ export interface MatchRow {
 
 export interface RankingSnapshotRow {
   id: string;
-  tournament_id: string;
+  tournament_id: string | null;
   weapon_type_id: string;
   event_id: string | null;
   algorithm: RankingAlgorithm;
@@ -151,7 +151,7 @@ export interface PublicPageRow {
   id: string;
   organization_id: string;
   page_id: string;
-  tournament_id: string;
+  tournament_id: string | null;
   snapshot_id: string | null;
   default_weapon_type_id: string | null;
   title: string;

@@ -47,13 +47,14 @@ export interface UpdateMatchResultInput {
 
 export interface BuildRankingEngineInputOptions {
   algorithm?: RankingAlgorithm;
+  scope?: "tournament" | "organization";
   weaponTypeId?: string;
   tournamentId?: string;
   eventId?: string;
 }
 
 export interface CreateRankingSnapshotInput {
-  tournamentId: string;
+  tournamentId?: string;
   weaponTypeId: string;
   eventId?: string;
   algorithm: RankingAlgorithm;

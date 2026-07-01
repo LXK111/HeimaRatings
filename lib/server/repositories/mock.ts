@@ -390,7 +390,8 @@ export class MockRepository implements AppRepository {
       options.algorithm,
       options.weaponTypeId,
       options.tournamentId,
-      options.eventId
+      options.eventId,
+      options.scope
     );
   }
 

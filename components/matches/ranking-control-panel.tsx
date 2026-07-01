@@ -120,7 +120,7 @@ export function RankingControlPanel({
           onClick={onPublish}
           type="button"
         >
-          {isPublishing ? "发布中..." : "发布公开榜单"}
+          {isPublishing ? "发布中..." : "发布组织总榜"}
         </button>
       </div>
 
@@ -138,7 +138,7 @@ export function RankingControlPanel({
       {publishedSnapshot ? (
         <div className="mt-4 rounded-2xl border border-white/10 bg-iron-950/60 p-4 text-sm text-stone-300">
           <p className="font-black text-stone-50">
-            公开页：/public/rankings/{selectedPublicPage?.pageId ?? publishPageId}
+            组织长期总榜：/public/rankings/{selectedPublicPage?.pageId ?? publishPageId}
           </p>
           <p className="mt-2">
             当前快照：{publishedSnapshot.id}，生成时间{" "}

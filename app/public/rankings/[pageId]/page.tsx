@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Pick<PublicRankingPageProps, 
     };
   }
 
-  const description = `${page.title} 的公开 HEMA 排名榜，支持按武器查看最新发布快照。`;
+  const description = `${page.title} 的 HEMA 组织长期总榜，支持按武器查看最新发布快照。`;
   return {
     title: `${page.title} | HEMA Ratings`,
     description,
@@ -79,7 +79,7 @@ export default async function PublicRankingPage({ params, searchParams }: Public
       eyebrow="Public Ranking"
       showOrganizationSwitcher={false}
       title={page.title}
-      description="公开页面面向外部访问者，只读展示指定武器类型的排名结果，并提供 iframe 嵌入代码。"
+      description="公开页面面向外部访问者，只读展示当前组织按武器汇总的长期排名结果，并提供 iframe 嵌入代码。"
     >
       <section className="grid gap-5 lg:grid-cols-4">
         <Panel title="发布状态">
@@ -92,11 +92,11 @@ export default async function PublicRankingPage({ params, searchParams }: Public
         </Panel>
         <Panel title="算法">
           <p className="text-3xl font-black uppercase text-brass-400">{page.algorithm}</p>
-          <p className="mt-4 text-sm text-stone-400">当前公开榜单使用快照展示语义。</p>
+          <p className="mt-4 text-sm text-stone-400">当前公开榜单使用组织级快照展示语义。</p>
         </Panel>
         <Panel title="生成时间">
           <p className="text-lg font-black text-stone-50">{page.generatedAt ?? "未知"}</p>
-          <p className="mt-4 text-sm text-stone-400">阶段 5 暂不实时计算公开结果。</p>
+          <p className="mt-4 text-sm text-stone-400">发布后固定展示本次组织总榜快照。</p>
         </Panel>
       </section>
 
