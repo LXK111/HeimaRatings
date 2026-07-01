@@ -10,6 +10,7 @@
     "check": "tsc --noEmit",
     "smoke": "node scripts/smoke_check.mjs",
     "ranking:verify": "node scripts/verify_ranking_engine_regression.mjs",
+    "ranking:input:verify": "node scripts/verify_ranking_input_construction.mjs",
     "auth:verify": "node scripts/verify_supabase_auth_rls_e2e.mjs",
     "auth:api:verify": "node scripts/verify_management_auth_api_e2e.mjs",
     "public:verify": "node scripts/verify_public_multi_weapon_e2e.mjs",

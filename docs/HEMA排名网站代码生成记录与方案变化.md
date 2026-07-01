@@ -65,6 +65,7 @@
 | v5.9 | 2026-07-01 | Codex | 执行阶段 46，扩展更多管理端真实表单权限验收 |
 | v6.0 | 2026-07-01 | Codex | 执行阶段 47，扩展管理端行内编辑表单权限验收 |
 | v6.1 | 2026-07-01 | Codex | 执行阶段 48，新增 Ranking Engine 输入输出回归测试 |
+| v6.2 | 2026-07-01 | Codex | 执行阶段 49，新增 Ranking Engine 输入构造回归测试 |
 
 ## 1. 文档目的
 
@@ -1683,3 +1684,33 @@ HeimaRatings/
 方案变化：
 
 - 排名质量保障从 smoke 级 API 调用推进到独立 Ranking Engine 回归；后续可继续补 API/Repository 级输入构造回归。
+
+### 阶段 49：Ranking Engine 输入构造回归测试
+
+方案细节：
+
+- 阶段 49 的目标是验证 API/Repository 从业务数据构造 Ranking Engine 输入时只包含真实比赛。
+- 使用 Mock 模式临时生产服务，走真实 `/api/tournaments/demo/matches` 和 `/api/rankings/calculate`。
+- 长剑公开组验证首轮轮空选手不会获得虚拟比赛。
+- 军刀公开组验证项目/武器过滤不会串入其他武器或无该武器积分的选手。
+- 通过 Ranking Engine 输出中的 matches/wins/losses 反推 Repository 构造输入没有多出虚拟比赛。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_ranking_input_construction.mjs`。
+- 已更新 `HeimaRatings/package.json`，新增 `npm run ranking:input:verify`。
+- 已创建 `HeimaRatings/docs/stage-49.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、阶段边界和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_ranking_input_construction.mjs`：通过，脚本语法无错误。
+- `npm run ranking:input:verify`：通过，API/Repository 输入构造回归通过。
+- `npm run ranking:verify`：通过，Ranking Engine 直接输入回归仍通过。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，Mock 模式完整本地验收通过。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- Ranking Engine 质量保障从算法输入本身推进到 API/Repository 输入构造链路；后续可继续补 Supabase 真库输入构造回归。
