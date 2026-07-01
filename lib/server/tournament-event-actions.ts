@@ -16,6 +16,7 @@ export async function createTournamentEventAction(formData: FormData) {
     format: readTournamentFormat(formData),
     status: readLifecycleStatus(formData)
   });
+  revalidatePath(`/tournaments/${tournamentId}`);
   revalidatePath(`/tournaments/${tournamentId}/events`);
 }
 
@@ -31,6 +32,7 @@ export async function updateTournamentEventAction(formData: FormData) {
     format: readTournamentFormat(formData),
     status: readLifecycleStatus(formData)
   });
+  revalidatePath(`/tournaments/${tournamentId}`);
   revalidatePath(`/tournaments/${tournamentId}/events`);
 }
 

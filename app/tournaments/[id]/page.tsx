@@ -2,8 +2,10 @@ import { AppShell } from "@/components/layout/app-shell";
 import { ActionLink } from "@/components/ui/action-link";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import type { LifecycleStatus, TournamentFormat, WeaponType } from "@/lib/domain/types";
 import { getRequestRepository } from "@/lib/server/repositories/factory";
 import { getServerRepositoryContext } from "@/lib/server/request-context";
+import { createTournamentEventAction } from "@/lib/server/tournament-event-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -61,12 +63,36 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
         </Panel>
       </section>
 
+      <Panel className="mt-6" title="新增比赛项目">
+        <form action={createTournamentEventAction} className="grid gap-4 md:grid-cols-[1.4fr_1fr_1fr_0.8fr_auto]">
+          <input name="tournamentId" type="hidden" value={id} />
+          <label className="grid gap-2 text-sm font-bold text-stone-300">
+            项目名称
+            <input
+              className="h-11 rounded-2xl border border-white/10 bg-iron-950 px-3 text-stone-50 outline-none transition focus:border-brass-400"
+              name="name"
+              placeholder="长剑公开组"
+              required
+            />
+          </label>
+          <WeaponSelect weaponTypes={weaponTypes} />
+          <TournamentFormatSelect />
+          <EventStatusSelect />
+          <button
+            className="self-end rounded-2xl bg-brass-400 px-5 py-3 text-sm font-black text-iron-950 transition hover:bg-brass-300"
+            type="submit"
+          >
+            新增
+          </button>
+        </form>
+      </Panel>
+
       <section className="mt-6 grid gap-5 lg:grid-cols-2">
         {tournamentEvents.map((event) => {
           const weapon = weaponTypes.find((item) => item.id === event.weaponTypeId);
           return (
             <Panel
-              action={<ActionLink href={`/tournaments/${id}/matches`}>录入比赛</ActionLink>}
+              action={<ActionLink href={`/tournaments/${id}/matches?eventId=${event.id}`}>进入录入</ActionLink>}
               key={event.id}
               title={event.name}
             >
@@ -82,6 +108,13 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
             </Panel>
           );
         })}
+        {tournamentEvents.length === 0 ? (
+          <Panel title="暂无比赛项目">
+            <p className="text-sm leading-7 text-stone-400">
+              请先根据已有武器类型创建比赛项目，再进入项目录入比赛。
+            </p>
+          </Panel>
+        ) : null}
       </section>
 
       <Panel
@@ -104,5 +137,80 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
         </div>
       </Panel>
     </AppShell>
+  );
+}
+
+function WeaponSelect({
+  compact = false,
+  defaultValue,
+  weaponTypes
+}: {
+  compact?: boolean;
+  defaultValue?: string;
+  weaponTypes: WeaponType[];
+}) {
+  return (
+    <label className={`grid ${compact ? "gap-1 text-xs" : "gap-2 text-sm"} font-bold text-stone-300`}>
+      武器类型
+      <select
+        className={`${compact ? "h-10 text-sm" : "h-11"} rounded-2xl border border-white/10 bg-iron-950 px-3 text-stone-50 outline-none transition focus:border-brass-400`}
+        defaultValue={defaultValue ?? weaponTypes[0]?.id}
+        name="weaponTypeId"
+        required
+      >
+        {weaponTypes.map((weapon) => (
+          <option key={weapon.id} value={weapon.id}>
+            {weapon.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TournamentFormatSelect({
+  compact = false,
+  defaultValue = "single_elimination"
+}: {
+  compact?: boolean;
+  defaultValue?: TournamentFormat;
+}) {
+  return (
+    <label className={`grid ${compact ? "gap-1 text-xs" : "gap-2 text-sm"} font-bold text-stone-300`}>
+      赛制
+      <select
+        className={`${compact ? "h-10 text-sm" : "h-11"} rounded-2xl border border-white/10 bg-iron-950 px-3 text-stone-50 outline-none transition focus:border-brass-400`}
+        defaultValue={defaultValue}
+        name="format"
+      >
+        <option value="single_elimination">单败淘汰</option>
+        <option value="round_robin">循环赛</option>
+        <option value="swiss">瑞士轮</option>
+        <option value="custom">自定义</option>
+      </select>
+    </label>
+  );
+}
+
+function EventStatusSelect({
+  compact = false,
+  defaultValue = "active"
+}: {
+  compact?: boolean;
+  defaultValue?: LifecycleStatus;
+}) {
+  return (
+    <label className={`grid ${compact ? "gap-1 text-xs" : "gap-2 text-sm"} font-bold text-stone-300`}>
+      状态
+      <select
+        className={`${compact ? "h-10 text-sm" : "h-11"} rounded-2xl border border-white/10 bg-iron-950 px-3 text-stone-50 outline-none transition focus:border-brass-400`}
+        defaultValue={defaultValue}
+        name="status"
+      >
+        <option value="draft">草稿</option>
+        <option value="active">进行中</option>
+        <option value="completed">已完成</option>
+      </select>
+    </label>
   );
 }

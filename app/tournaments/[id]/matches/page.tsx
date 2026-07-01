@@ -15,10 +15,14 @@ export const dynamic = "force-dynamic";
 
 interface MatchesPageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{
+    eventId?: string;
+  }>;
 }
 
-export default async function MatchesPage({ params }: MatchesPageProps) {
+export default async function MatchesPage({ params, searchParams }: MatchesPageProps) {
   const { id } = await params;
+  const initialEventId = (await searchParams)?.eventId;
   const repository = await getRequestRepository(await getServerRepositoryContext());
 
   let weapons: WeaponType[];
@@ -47,6 +51,7 @@ export default async function MatchesPage({ params }: MatchesPageProps) {
     >
       <MatchWorkbench
         events={events}
+        initialEventId={initialEventId}
         players={players}
         publicPages={publicPages}
         tournamentId={id}

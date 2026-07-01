@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BracketBoard } from "@/components/matches/bracket-board";
 import { MatchEntryForm } from "@/components/matches/match-entry-form";
 import { MatchListPanel } from "@/components/matches/match-list-panel";
@@ -23,6 +23,7 @@ import type {
 
 interface MatchWorkbenchProps {
   events: TournamentEventSummary[];
+  initialEventId?: string;
   players: PlayerSummary[];
   publicPages: PublicRankingPageSummary[];
   tournamentId: string;
@@ -67,8 +68,17 @@ const fallbackPublicPages: PublicRankingPageSummary[] = [
   }
 ];
 
+function resolveInitialEventId(events: TournamentEventSummary[], initialEventId?: string) {
+  if (initialEventId && events.some((event) => event.id === initialEventId)) {
+    return initialEventId;
+  }
+
+  return events[0]?.id ?? "";
+}
+
 export function MatchWorkbench({
   events,
+  initialEventId,
   players,
   publicPages,
   tournamentId,
@@ -82,7 +92,7 @@ export function MatchWorkbench({
   );
   const [matches, setMatches] = useState<MatchSummary[]>([]);
   const [bracketSlots, setBracketSlots] = useState<BracketSlotSummary[]>([]);
-  const [eventId, setEventId] = useState(activeEvents[0]?.id ?? "");
+  const [eventId, setEventId] = useState(() => resolveInitialEventId(activeEvents, initialEventId));
   const [round, setRound] = useState("1");
   const [player1Name, setPlayer1Name] = useState("");
   const [player2Name, setPlayer2Name] = useState("");
@@ -103,6 +113,7 @@ export function MatchWorkbench({
   const [isPublishing, setIsPublishing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const lastInitialEventIdRef = useRef(initialEventId);
 
   const selectedEvent = activeEvents.find((event) => event.id === eventId) ?? activeEvents[0];
   const selectedWeapon = weapons.find((weapon) => weapon.id === weaponTypeId) ?? enabledWeapons[0];
@@ -123,6 +134,21 @@ export function MatchWorkbench({
   }, [selectedEvent?.weaponTypeId]);
   const filteredMatches = matches.filter((match) => match.weaponTypeId === weaponTypeId);
   const advanceDisabledReason = getAdvanceDisabledReason(selectedEvent, selectedEventMatches, entries);
+
+  useEffect(() => {
+    const nextEventId = resolveInitialEventId(activeEvents, initialEventId);
+    const initialEventChanged = lastInitialEventIdRef.current !== initialEventId;
+    setEventId((currentEventId) => {
+      if (initialEventChanged) {
+        return nextEventId;
+      }
+      if (currentEventId && activeEvents.some((event) => event.id === currentEventId)) {
+        return currentEventId;
+      }
+      return nextEventId;
+    });
+    lastInitialEventIdRef.current = initialEventId;
+  }, [activeEvents, initialEventId]);
 
   useEffect(() => {
     async function loadMatches() {
