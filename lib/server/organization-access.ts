@@ -77,11 +77,11 @@ function resolveActiveMembership(
   }
 
   if (context.organizationId) {
-    return memberships.find((membership) => membership.organizationId === context.organizationId);
+    return memberships.find((membership) => membership.organizationId === context.organizationId) ?? memberships[0];
   }
 
   if (context.organizationSlug) {
-    return memberships.find((membership) => membership.organizationSlug === context.organizationSlug);
+    return memberships.find((membership) => membership.organizationSlug === context.organizationSlug) ?? memberships[0];
   }
 
   return memberships[0];
