@@ -72,6 +72,7 @@
 | v6.6 | 2026-07-01 | Codex | 执行阶段 53，新增晋级落位写入 bracket_slots |
 | v6.7 | 2026-07-01 | Codex | 执行阶段 54，新增管理端签表视图读取 bracket_slots |
 | v6.8 | 2026-07-01 | Codex | 整理部署前待执行阶段和部署后交互业务优化项 |
+| v6.9 | 2026-07-01 | Codex | 执行阶段 55，新增签表视图浏览器验收 |
 
 ## 1. 文档目的
 
@@ -1909,3 +1910,31 @@ HeimaRatings/
 方案变化：
 
 - 后续路线从连续阶段硬排调整为“部署前主线 + 部署后交互优化”两类，先保证可部署、可验证、可运营，再补复杂交互能力。
+
+### 阶段 55：签表视图浏览器验收
+
+方案细节：
+
+- 阶段 55 的目标是验证 `bracket_slots` 签表模型在真实浏览器中的管理端页面可见。
+- 复用阶段 53/54 的 Supabase 真库签表晋级验收数据，不创建重复 seed 链路。
+- editor 账号负责生成初始签表、完成首轮比赛并生成下一轮。
+- viewer 账号继续验证晋级写操作被拒绝。
+- Playwright 浏览器上下文写入 Supabase Auth cookies 和 `heima_organization_slug` cookie 后访问临时赛事比赛录入页。
+- 浏览器断言覆盖第 1 轮、第 2 轮、固定 slot 编号、轮空、晋级、来源比赛和轮空选手。
+
+代码生成记录：
+
+- 已更新 `HeimaRatings/scripts/verify_supabase_bracket_slots_advancement.mjs`，引入 Playwright 并新增 editor/viewer 签表页面读取验收。
+- 已创建 `HeimaRatings/docs/stage-55.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、已完成阶段、验收命令说明和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_supabase_bracket_slots_advancement.mjs`：通过，脚本语法无错误。
+- `npm run bracket:slots:advance:verify`：通过，真库验证 slots API、editor/viewer 浏览器签表读取、viewer 晋级拒绝和临时数据清理。
+- `npm run check`：通过，TypeScript 类型检查无错误。
+- `git diff --check`：通过，当前变更无空白格式问题。
+
+方案变化：
+
+- 签表验收从 API/数据库层推进到真实浏览器页面层；slot 编辑和完整签表体验优化继续作为部署后交互业务优化项。

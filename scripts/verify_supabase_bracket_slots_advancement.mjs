@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { chromium } from "playwright";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
@@ -13,6 +14,9 @@ const verifyPort = process.env.HEIMA_RATINGS_BRACKET_SLOTS_ADVANCE_VERIFY_PORT ?
 const baseUrl =
   process.env.HEIMA_RATINGS_BRACKET_SLOTS_ADVANCE_VERIFY_BASE_URL ??
   `http://localhost:${verifyPort}`;
+const chromeExecutablePath =
+  process.env.HEIMA_RATINGS_BROWSER_EXECUTABLE_PATH ??
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 async function main() {
   console.log("HEMA Ratings Supabase bracket slots advancement verify");
@@ -82,6 +86,7 @@ async function main() {
       assert(Array.isArray(advancePayload.data) && advancePayload.data.length === 1, "advancement should create 1 real match");
       await verifyBracketSlotsApi(seed, editorSession, firstRoundMatch.id);
       await verifyAdvancedSlots(supabase, seed, firstRoundMatch.id);
+      await verifyBracketSlotsBrowser(seed, editorSession, viewerSession);
     } finally {
       stopServer();
     }
@@ -312,6 +317,131 @@ async function verifyAdvancedSlots(supabase, seed, sourceMatchId) {
   );
 
   console.log("supabase bracket slots advancement: ok");
+}
+
+async function verifyBracketSlotsBrowser(seed, editorSession, viewerSession) {
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: existsSync(chromeExecutablePath) ? chromeExecutablePath : undefined
+  });
+  const pageErrors = [];
+  const consoleErrors = [];
+
+  try {
+    await verifyBracketSlotsBrowserForSession(browser, seed, editorSession, {
+      label: "editor bracket slots browser read",
+      pageErrors,
+      consoleErrors
+    });
+    await verifyBracketSlotsBrowserForSession(browser, seed, viewerSession, {
+      label: "viewer bracket slots browser read",
+      pageErrors,
+      consoleErrors
+    });
+
+    if (pageErrors.length > 0) {
+      throw new Error(`Browser page errors:\n${pageErrors.join("\n")}`);
+    }
+    if (consoleErrors.length > 0) {
+      throw new Error(`Browser console errors:\n${consoleErrors.join("\n")}`);
+    }
+  } finally {
+    await browser.close();
+  }
+
+  console.log("bracket slots browser read: ok");
+}
+
+async function verifyBracketSlotsBrowserForSession(browser, seed, session, options) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+  await addSessionCookies(context, session.cookieHeader, seed.organizationSlug);
+  const page = await context.newPage();
+  page.on("pageerror", (error) => {
+    options.pageErrors.push(error.message);
+  });
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      options.consoleErrors.push(message.text());
+    }
+  });
+
+  try {
+    const slotsResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/tournaments/${seed.tournamentId}/events/${seed.eventId}/bracket/slots`),
+      { timeout: 15000 }
+    );
+    await page.goto(new URL(`/tournaments/${seed.tournamentId}/matches`, baseUrl).toString(), {
+      waitUntil: "networkidle"
+    });
+    const slotsResponse = await slotsResponsePromise;
+    if (!slotsResponse.ok()) {
+      throw new Error(
+        `${options.label} bracket slots API failed with HTTP ${slotsResponse.status()}: ${await slotsResponse.text()}`
+      );
+    }
+
+    if (page.url().includes("/login")) {
+      throw new Error(`${options.label} should not redirect to login`);
+    }
+
+    await expectVisibleText(page, "比赛录入", options.label);
+    await expectVisibleText(page, "阶段53长剑公开组签表", options.label);
+    await expectVisibleText(page, "第 1 轮", options.label);
+    await expectVisibleText(page, "第 2 轮", options.label);
+    await expectVisibleText(page, "Slot 1", options.label);
+    await expectVisibleText(page, "轮空", options.label);
+    await expectVisibleText(page, "晋级", options.label);
+    await expectVisibleText(page, "来源：阶段53林澈 vs 阶段53许岚", options.label);
+    await expectVisibleText(page, "阶段53周衡", options.label);
+  } finally {
+    await context.close();
+  }
+
+  console.log(`${options.label}: ok`);
+}
+
+async function addSessionCookies(context, cookieHeader, organizationSlug) {
+  const cookies = parseCookieHeader(cookieHeader).map((cookie) => ({
+    ...cookie,
+    url: baseUrl
+  }));
+  cookies.push({
+    name: "heima_organization_slug",
+    value: organizationSlug,
+    url: baseUrl
+  });
+
+  await context.addCookies(cookies);
+}
+
+function parseCookieHeader(cookieHeader) {
+  return cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const separatorIndex = part.indexOf("=");
+      if (separatorIndex <= 0) {
+        throw new Error(`Invalid cookie segment: ${part}`);
+      }
+
+      return {
+        name: part.slice(0, separatorIndex),
+        value: part.slice(separatorIndex + 1)
+      };
+    });
+}
+
+async function expectVisibleText(page, text, label) {
+  await page.waitForFunction(
+    (expectedText) => document.body.innerText.includes(expectedText),
+    text,
+    { timeout: 15000 }
+  ).catch(async () => {
+    const bodyText = await page.locator("body").innerText().catch(() => "");
+    throw new Error(`${label} expected visible text: ${text}\nVisible page text:\n${bodyText.slice(0, 2000)}`);
+  });
 }
 
 async function expectBracketAction(seed, session, action, expectedStatus, label) {

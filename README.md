@@ -60,6 +60,7 @@
 | v5.4 | 2026-07-01 | Codex | 更新阶段 53 晋级落位写入 bracket_slots 状态 |
 | v5.5 | 2026-07-01 | Codex | 更新阶段 54 管理端签表视图读取 bracket_slots 状态 |
 | v5.6 | 2026-07-01 | Codex | 整理部署前待执行阶段和部署后交互业务优化项 |
+| v5.7 | 2026-07-01 | Codex | 更新阶段 55 签表视图浏览器验收状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -87,7 +88,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 54：管理端签表视图读取 bracket_slots。
+当前已推进到阶段 55：签表视图浏览器验收。
 
 已完成阶段：
 
@@ -146,6 +147,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 52：初始签表生成同步写入 `bracket_slots`，轮空记录为 slot 而不是虚拟 match，并新增真库生成验收。
 - 阶段 53：单败淘汰晋级同步写入下一轮 `bracket_slots`，真实胜者记录来源比赛，pending bye 进入下一轮签位。
 - 阶段 54：管理端签表视图优先读取 `bracket_slots`，展示固定签位、轮空和晋级来源，并保留 matches 推导兜底。
+- 阶段 55：扩展签表晋级真库验收脚本，用真实浏览器验证 editor/viewer 都能读取管理端签表中的固定签位、轮空和晋级来源。
 
 当前阶段边界：
 
@@ -193,7 +195,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run ranking:input:verify` 会启动 Mock 临时服务，验证 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run ranking:supabase:verify` 会以 Supabase 模式创建临时组织和赛事数据，验证真库 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run bracket:slots:verify` 会以 Supabase 模式创建临时三人单败项目，验证初始签表生成会写入 `bracket_slots` 并保留真实 match 数量。
-- `npm run bracket:slots:advance:verify` 会以 Supabase 模式验证生成首轮、完成比赛、生成下一轮、下一轮 slots 和真实 match 数量。
+- `npm run bracket:slots:advance:verify` 会以 Supabase 模式验证生成首轮、完成比赛、生成下一轮、下一轮 slots、真实 match 数量和管理端浏览器签表展示。
 - `npm run public:verify` 会以 Supabase 模式创建临时多武器公开页，验证公开 API 和浏览器公开页展示后清理临时数据。
 - `npm run auth:browser:verify` 会以 Supabase 模式启动临时服务，用真实 viewer/editor 测试账号验证浏览器登录态、viewer 写权限拒绝、editor 多个真实管理表单提交和行内编辑保存。
 - 公开页和嵌入页的 `AppShell` 不再触发管理端授权上下文，匿名访问不会被重定向到登录页。
@@ -203,7 +205,6 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 部署前主线：
 
-- 阶段 55：签表视图浏览器验收。用真实浏览器验证管理端页面展示 `bracket_slots` 中的固定签位、轮空和晋级来源，并覆盖 viewer/editor 权限边界。
 - 阶段 58：真实数据导入/初始化工具。支持从 CSV 或表格批量导入选手、武器积分、赛事参赛名单和初始数据。
 - 阶段 59：公开页和嵌入页生产化细节。补充 SEO metadata、错误/加载状态、多公开页管理入口和 iframe 主题/尺寸配置。
 - 阶段 60：部署前运行形态收口。确认 Python Ranking Engine 部署方式、Vercel/Supabase 环境变量、migration 执行顺序和生产验收 checklist。
