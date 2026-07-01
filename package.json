@@ -12,6 +12,7 @@
     "auth:verify": "node scripts/verify_supabase_auth_rls_e2e.mjs",
     "auth:api:verify": "node scripts/verify_management_auth_api_e2e.mjs",
     "db:verify": "node scripts/verify_database_constraints.mjs",
+    "browser:verify": "node scripts/verify_browser_pages.mjs",
     "verify": "node scripts/verify_local.mjs"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",

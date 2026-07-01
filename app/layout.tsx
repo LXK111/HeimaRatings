@@ -3,7 +3,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "HEMA Ratings",
-  description: "HEMA 多武器类型积分与排名管理 MVP"
+  description: "HEMA 多武器类型积分与排名管理 MVP",
+  icons: {
+    icon: "/favicon.svg"
+  }
 };
 
 export default function RootLayout({

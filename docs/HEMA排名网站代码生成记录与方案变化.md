@@ -56,6 +56,7 @@
 | v5.0 | 2026-07-01 | Codex | 执行阶段 37，新增轮空与奇数晋级提示 |
 | v5.1 | 2026-07-01 | Codex | 执行阶段 38，新增签表/项目排名真库验收脚本 |
 | v5.2 | 2026-07-01 | Codex | 执行阶段 39，新增公开页发布目标选择 |
+| v5.3 | 2026-07-01 | Codex | 执行阶段 40，新增浏览器自动化页面流验收 |
 
 ## 1. 文档目的
 
@@ -1416,3 +1417,34 @@ HeimaRatings/
 方案变化：
 
 - 榜单发布从“固定写入 demo 公开页”推进到“由当前组织公开页配置决定发布目标”，降低多公开页运营误发布风险。
+
+### 阶段 40：浏览器自动化页面流验收
+
+方案细节：
+
+- 阶段 40 的目标是把页面级回归从人工打开推进到脚本化浏览器验收。
+- API 和数据库验收只能证明服务端链路可用，不能证明用户实际页面没有渲染错误。
+- 本阶段先覆盖 Mock 模式核心页面，避免引入真实账号登录和多环境依赖。
+- 验收脚本使用生产构建和临时 `next start`，更接近交付运行形态。
+- 浏览器验收对页面运行时错误和 console error 保持严格检查。
+
+代码生成记录：
+
+- 已新增 `HeimaRatings/scripts/verify_browser_pages.mjs`。
+- 已更新 `HeimaRatings/package.json` 和 `HeimaRatings/package-lock.json`，新增 `@playwright/test` 与 `npm run browser:verify`。
+- 已更新 `HeimaRatings/app/layout.tsx`，声明站点图标。
+- 已新增 `HeimaRatings/public/favicon.svg`，避免浏览器 favicon 请求产生 404 console error。
+- 已创建 `HeimaRatings/docs/stage-40.md`。
+- 已更新 `HeimaRatings/README.md` 当前阶段、运行命令和后续阶段。
+
+验证记录：
+
+- `node --check scripts/verify_browser_pages.mjs`：通过，脚本语法无错误。
+- `git diff --check`：通过，无空白格式问题。
+- `npm run check`：通过，TypeScript 无错误。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run verify`：通过，已自动执行 `check`、`build`，临时启动生产服务并完成 smoke。
+- `HEIMA_RATINGS_DATA_SOURCE=mock npm run browser:verify`：通过，已自动执行 `build`、临时启动生产服务，并验证核心页面。
+
+方案变化：
+
+- 验收体系从 API/数据库为主推进到包含浏览器页面流，后续可以继续扩展 Supabase 登录态和真实表单提交路径。

@@ -44,6 +44,7 @@
 | v3.8 | 2026-07-01 | Codex | 更新阶段 37 轮空与奇数晋级提示状态 |
 | v3.9 | 2026-07-01 | Codex | 更新阶段 38 签表/项目排名真库验收脚本状态 |
 | v4.0 | 2026-07-01 | Codex | 更新阶段 39 公开页发布目标选择状态 |
+| v4.1 | 2026-07-01 | Codex | 更新阶段 40 浏览器自动化页面流验收状态 |
 
 ## 重要提醒：文档记录位置
 
@@ -71,7 +72,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 ## 当前阶段
 
-当前已推进到阶段 39：公开页发布目标选择。
+当前已推进到阶段 40：浏览器自动化页面流验收。
 
 已完成阶段：
 
@@ -115,6 +116,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 37：签表视图可提示首轮轮空，奇数胜者晋级时阻止静默丢失未配对选手。
 - 阶段 38：新增签表、比赛结果和项目级排名快照的真库约束验收，并扩展管理端 Auth/API 验收覆盖项目参赛名单、签表写权限和项目级快照写入。
 - 阶段 39：比赛录入页发布公开榜单时可选择公开页目标，不再固定发布到 `demo`。
+- 阶段 40：新增浏览器自动化页面流验收，覆盖核心管理端页面、公开页、嵌入页和发布目标选择控件。
 
 当前阶段边界：
 
@@ -153,12 +155,13 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run db:verify` 已覆盖 `matches`、`ranking_snapshots.event_id` 和 `ranking_snapshot_items` 的组织一致性约束验收。
 - `npm run auth:api:verify` 已覆盖项目参赛名单读取、viewer 签表生成拒绝和 editor 项目级排名快照写入。
 - 比赛录入页的公开榜单发布目标来自当前组织公开页列表；无公开页时保留 `demo` 兜底。
+- `npm run browser:verify` 会构建生产包、启动临时服务，并用浏览器验证核心页面和发布目标控件。
 - 默认数据源为 Mock；Supabase 数据源已完成真库联调，并已验证页面发布后公开页和嵌入页可读取真实快照。
 
 ## 后续阶段
 
 - 后续增强：执行阶段 13 migration 后做 Supabase 多武器公开页真库验收。
-- 后续增强：完善自动轮空落位模型和浏览器自动化验收。
+- 后续增强：完善自动轮空落位模型。
 - 后续增强：将管理端 API Cookie 验收扩展到浏览器自动化页面流。
 
 ## 遗留 TODO
@@ -233,6 +236,9 @@ npm run auth:api:verify
 # 真库数据库约束验收（需要 psql 和 DATABASE_URL）
 npm run db:verify
 
+# 浏览器页面流验收（会自动 build、start，并使用本机 Chrome）
+npm run browser:verify
+
 # 本地一键验收（会自动执行 check、build、临时 start 和 smoke）
 npm run verify
 
@@ -249,6 +255,13 @@ npm run start
 访问地址：`http://localhost:3000`
 
 `npm run verify` 默认临时使用 `http://localhost:3100` 做生产服务验收；如端口被占用，可通过 `HEIMA_RATINGS_VERIFY_PORT=3101 npm run verify` 覆盖。
+
+`npm run browser:verify` 默认临时使用 `http://localhost:3200`，并优先使用 macOS Chrome：`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`。如需覆盖，可设置：
+
+```bash
+HEIMA_RATINGS_BROWSER_VERIFY_PORT=3201
+HEIMA_RATINGS_BROWSER_EXECUTABLE_PATH="/path/to/chrome"
+```
 
 `npm run db:verify` 会优先读取当前 shell 中的 `DATABASE_URL`，也支持项目根目录下不提交的 `.env.database.local`：
 
