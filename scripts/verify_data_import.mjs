@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import XLSX from "xlsx";
 
 for (const fileName of [".env.local", ".env.database.local"]) {
   loadLocalEnvFile(fileName);
@@ -18,20 +19,28 @@ async function main() {
       autoRefreshToken: false
     }
   });
+
+  await runImportScenario(supabase, "csv");
+  await runImportScenario(supabase, "xlsx");
+
+  console.log("Data import verify passed.");
+}
+
+async function runImportScenario(supabase, kind) {
   const created = {
     organizationId: undefined,
-    organizationSlug: `stage58-${randomUUID().slice(0, 8)}`
+    organizationSlug: `stage58-${kind}-${randomUUID().slice(0, 8)}`
   };
 
   try {
-    const seed = await seedImportTarget(supabase, created);
-    const importDir = writeImportCsvFiles(seed);
+    const seed = await seedImportTarget(supabase, created, kind);
+    const source = kind === "xlsx" ? writeImportWorkbook(seed) : writeImportCsvFiles(seed);
+    const sourceArgs = kind === "xlsx" ? ["--file", source] : ["--dir", source];
     await runCommand("npm", [
       "run",
       "data:import",
       "--",
-      "--dir",
-      importDir,
+      ...sourceArgs,
       "--organization-slug",
       created.organizationSlug,
       "--apply"
@@ -40,15 +49,13 @@ async function main() {
   } finally {
     await cleanupSeedData(supabase, created);
   }
-
-  console.log("Data import verify passed.");
 }
 
-async function seedImportTarget(supabase, created) {
+async function seedImportTarget(supabase, created, kind) {
   const organization = await querySingle(
     supabase
       .from("organizations")
-      .insert({ name: "Stage 58 数据导入验收组织", slug: created.organizationSlug })
+      .insert({ name: `Stage 58 ${kind.toUpperCase()} 数据导入验收组织`, slug: created.organizationSlug })
       .select("id,slug")
       .single(),
     "seed organization"
@@ -59,8 +66,8 @@ async function seedImportTarget(supabase, created) {
       .from("weapon_types")
       .insert({
         organization_id: organization.id,
-        name: "阶段58长剑",
-        slug: "stage58-longsword",
+        name: `阶段58${kind.toUpperCase()}长剑`,
+        slug: `stage58-${kind}-longsword`,
         enabled: true,
         sort_order: 1
       })
@@ -73,7 +80,7 @@ async function seedImportTarget(supabase, created) {
       .from("tournaments")
       .insert({
         organization_id: organization.id,
-        name: "Stage 58 数据导入验收赛",
+        name: `Stage 58 ${kind.toUpperCase()} 数据导入验收赛`,
         format: "single_elimination",
         status: "active",
         default_algorithm: "hybrid"
@@ -88,7 +95,7 @@ async function seedImportTarget(supabase, created) {
       .insert({
         tournament_id: tournament.id,
         weapon_type_id: weapon.id,
-        name: "阶段58长剑公开组",
+        name: `阶段58${kind.toUpperCase()}长剑公开组`,
         format: "single_elimination",
         status: "active"
       })
@@ -97,29 +104,56 @@ async function seedImportTarget(supabase, created) {
     "seed event"
   );
 
-  console.log("data import target seed: ok");
-  return { organization, weapon, tournament, event };
+  console.log(`data import target seed (${kind}): ok`);
+  return {
+    organization,
+    weapon,
+    tournament,
+    event,
+    players: [`阶段58${kind}沈砺`, `阶段58${kind}韩越`]
+  };
 }
 
 function writeImportCsvFiles(seed) {
   const importDir = mkdtempSync(join(tmpdir(), "heima-ratings-import-"));
-  writeFileSync(join(importDir, "players.csv"), [
-    "name,club",
-    "阶段58沈砺,验收剑馆",
-    "阶段58韩越,验收剑馆"
-  ].join("\n"));
-  writeFileSync(join(importDir, "ratings.csv"), [
-    "player_name,weapon_slug,initial_rating,current_rating,rd,sigma,matches_count,wins_count,losses_count,draws_count",
-    `阶段58沈砺,${seed.weapon.slug},1500,1510,340,0.2,1,1,0,0`,
-    `阶段58韩越,${seed.weapon.slug},1500,1490,340,0.2,1,0,1,0`
-  ].join("\n"));
-  writeFileSync(join(importDir, "event_entries.csv"), [
-    "tournament_name,event_name,player_name,seed,status",
-    `${seed.tournament.name},${seed.event.name},阶段58沈砺,1,registered`,
-    `${seed.tournament.name},${seed.event.name},阶段58韩越,2,registered`
-  ].join("\n"));
+  writeFileSync(join(importDir, "players.csv"), toCsv([
+    ["name", "club"],
+    [seed.players[0], "验收剑馆"],
+    [seed.players[1], "验收剑馆"]
+  ]));
+  writeFileSync(join(importDir, "event_entries.csv"), toCsv([
+    ["tournament_name", "event_name", "player_name", "seed", "status"],
+    [seed.tournament.name, seed.event.name, seed.players[0], "1", "registered"],
+    [seed.tournament.name, seed.event.name, seed.players[1], "2", "registered"]
+  ]));
+  writeFileSync(join(importDir, "matches.csv"), toCsv([
+    ["赛事", "比赛项目", "轮次", "选手 A", "选手 B", "比分 A", "比分 B"],
+    [seed.tournament.name, seed.event.name, "1", seed.players[0], seed.players[1], "5", "3"]
+  ]));
 
   return importDir;
+}
+
+function writeImportWorkbook(seed) {
+  const importDir = mkdtempSync(join(tmpdir(), "heima-ratings-import-"));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["name", "club"],
+    [seed.players[0], "验收剑馆"],
+    [seed.players[1], "验收剑馆"]
+  ]), "players");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["tournament_name", "event_name", "player_name", "seed", "status"],
+    [seed.tournament.name, seed.event.name, seed.players[0], 1, "registered"],
+    [seed.tournament.name, seed.event.name, seed.players[1], 2, "registered"]
+  ]), "event_entries");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["赛事", "比赛项目", "轮次", "选手 A", "选手 B", "比分 A", "比分 B"],
+    [seed.tournament.name, seed.event.name, 1, seed.players[0], seed.players[1], 5, 3]
+  ]), "matches");
+  const filePath = join(importDir, "matches-import.xlsx");
+  XLSX.writeFile(workbook, filePath);
+  return filePath;
 }
 
 async function verifyImportedData(supabase, seed) {
@@ -128,19 +162,10 @@ async function verifyImportedData(supabase, seed) {
       .from("players")
       .select("id,name,club")
       .eq("organization_id", seed.organization.id)
-      .in("name", ["阶段58沈砺", "阶段58韩越"]),
+      .in("name", seed.players),
     "verify imported players"
   );
   assert(players.length === 2, `expected 2 imported players, got ${players.length}`);
-  const ratings = await queryMany(
-    supabase
-      .from("player_weapon_ratings")
-      .select("id,player_id,weapon_type_id,current_rating")
-      .in("player_id", players.map((player) => player.id))
-      .eq("weapon_type_id", seed.weapon.id),
-    "verify imported ratings"
-  );
-  assert(ratings.length === 2, `expected 2 imported ratings, got ${ratings.length}`);
   const entries = await queryMany(
     supabase
       .from("tournament_event_entries")
@@ -151,6 +176,29 @@ async function verifyImportedData(supabase, seed) {
   );
   assert(entries.length === 2, `expected 2 imported entries, got ${entries.length}`);
   assert(entries.every((entry) => entry.status === "registered"), "imported entries should be registered");
+  const matches = await queryMany(
+    supabase
+      .from("matches")
+      .select("id,event_id,player1_id,player2_id,score1,score2")
+      .eq("event_id", seed.event.id),
+    "verify imported matches"
+  );
+  assert(matches.length === 1, `expected 1 imported match, got ${matches.length}`);
+  const ratings = await queryMany(
+    supabase
+      .from("player_weapon_ratings")
+      .select("id,player_id,weapon_type_id,current_rating,matches_count,wins_count,losses_count")
+      .in("player_id", players.map((player) => player.id))
+      .eq("weapon_type_id", seed.weapon.id),
+    "verify recalculated ratings"
+  );
+  assert(ratings.length === 2, `expected 2 recalculated ratings, got ${ratings.length}`);
+  assert(ratings.every((rating) => rating.matches_count === 1), "recalculated ratings should include imported match");
+  assert(
+    ratings.some((rating) => Number(rating.current_rating) > 1500) &&
+      ratings.some((rating) => Number(rating.current_rating) < 1500),
+    "ratings should change after imported match"
+  );
 
   console.log("data import apply verification: ok");
 }
@@ -177,6 +225,13 @@ async function cleanupSeedData(supabase, created) {
     "cleanup organization"
   );
   console.log("data import cleanup: ok");
+}
+
+function toCsv(rows) {
+  return rows.map((row) => row.map((cell) => {
+    const text = String(cell ?? "");
+    return /[",\n\r]/.test(text) ? `"${text.replaceAll("\"", "\"\"")}"` : text;
+  }).join(",")).join("\n");
 }
 
 function readConfig() {

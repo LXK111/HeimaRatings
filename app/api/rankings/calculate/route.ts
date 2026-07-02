@@ -25,8 +25,10 @@ export async function POST(request: Request) {
     const eventId = typeof body?.eventId === "string" ? body.eventId : undefined;
     const scope = body?.scope === "organization" ? "organization" : "tournament";
     const persistSnapshot = body?.persistSnapshot === true;
+    const updateRatings =
+      body?.updateRatings === true || (persistSnapshot && scope === "organization" && eventId === undefined);
     const publishPageId = typeof body?.publishPageId === "string" ? body.publishPageId : undefined;
-    if (persistSnapshot) {
+    if (persistSnapshot || updateRatings) {
       const writeAccessError = await requireManagementApiWriteAccess(request);
       if (writeAccessError) {
         return writeAccessError;
@@ -34,11 +36,15 @@ export async function POST(request: Request) {
     }
 
     const repository = await getRequestRepository(await readAuthorizedRepositoryContextFromRequest(request));
-    const input = !persistSnapshot && isRankingEngineInput(body)
+    const input = !persistSnapshot && !updateRatings && isRankingEngineInput(body)
       ? { ...body, algorithm }
       : await repository.buildRankingEngineInput({ algorithm, scope, weaponTypeId, tournamentId, eventId });
 
     const result = await runRankingEngine(input);
+    if (updateRatings) {
+      await repository.updatePlayerWeaponRatings(input.weaponTypeId, result);
+    }
+
     if (!persistSnapshot) {
       return ok(result);
     }

@@ -1095,6 +1095,42 @@ export class SupabaseRepository implements AppRepository {
     };
   }
 
+  async updatePlayerWeaponRatings(weaponTypeId: string, output: RankingEngineOutput): Promise<void> {
+    const resolvedWeaponTypeId = resolveId(weaponTypeId);
+    await this.ensureWeaponInOrganization(resolvedWeaponTypeId, "updatePlayerWeaponRatings.weapon");
+
+    const playerIds = output.rankings.map((ranking) => resolveId(ranking.playerId));
+    const players = await this.loadPlayersByIds(playerIds);
+    const missingPlayer = playerIds.find((playerId) => !players.has(playerId));
+    if (missingPlayer) {
+      throw new Error(`Ranking output contains player outside current organization: ${missingPlayer}`);
+    }
+
+    const rows = output.rankings.map((ranking) => ({
+      player_id: resolveId(ranking.playerId),
+      weapon_type_id: resolvedWeaponTypeId,
+      current_rating: ranking.rating,
+      rd: ranking.rd ?? 350,
+      sigma: ranking.sigma ?? 0.2,
+      matches_count: ranking.matches,
+      wins_count: ranking.wins,
+      losses_count: ranking.losses,
+      draws_count: ranking.draws
+    }));
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    await this.query<PlayerWeaponRatingRow[]>(
+      (await this.getClient())
+        .from("player_weapon_ratings")
+        .upsert(rows, { onConflict: "player_id,weapon_type_id" })
+        .select("*"),
+      "updatePlayerWeaponRatings"
+    );
+  }
+
   async createRankingSnapshot(
     input: CreateRankingSnapshotInput,
     output: RankingEngineOutput

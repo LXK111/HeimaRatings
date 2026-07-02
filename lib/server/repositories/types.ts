@@ -171,6 +171,7 @@ export interface AppRepository {
   getRankingSnapshot(snapshotId: string): Promise<RankingSnapshotPayload>;
   listTournamentEventRankingSnapshots(tournamentId: string): Promise<TournamentEventRankingSnapshot[]>;
   buildRankingEngineInput(options: BuildRankingEngineInputOptions): Promise<RankingEngineInput>;
+  updatePlayerWeaponRatings(weaponTypeId: string, output: RankingEngineOutput): Promise<void>;
   createRankingSnapshot(
     input: CreateRankingSnapshotInput,
     output: RankingEngineOutput

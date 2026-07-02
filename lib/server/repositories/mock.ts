@@ -1,4 +1,4 @@
-import type { BracketSlotSummary, MatchSummary, RankingRow } from "@/lib/domain/types";
+import type { BracketSlotSummary, MatchSummary, RankingEngineOutput, RankingRow } from "@/lib/domain/types";
 import {
   appendBracketSlots,
   appendMatchDrafts,
@@ -398,6 +398,27 @@ export class MockRepository implements AppRepository {
       options.eventId,
       options.scope
     );
+  }
+
+  async updatePlayerWeaponRatings(weaponTypeId: string, output: RankingEngineOutput) {
+    const playerById = new Map(listPlayers().map((player) => [player.id, player]));
+    output.rankings.forEach((ranking) => {
+      const player = playerById.get(ranking.playerId);
+      if (!player) {
+        return;
+      }
+      const existing = player.weaponRatings.find((rating) => rating.weaponTypeId === weaponTypeId);
+      if (existing) {
+        existing.rating = ranking.rating;
+        existing.rank = ranking.rank;
+        return;
+      }
+      player.weaponRatings.push({
+        weaponTypeId,
+        rating: ranking.rating,
+        rank: ranking.rank
+      });
+    });
   }
 
   async createRankingSnapshot(

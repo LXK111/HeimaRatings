@@ -399,7 +399,13 @@ export function MatchWorkbench({
       const response = await fetch("/api/rankings/calculate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input)
+        body: JSON.stringify({
+          algorithm,
+          scope: "tournament",
+          tournamentId,
+          weaponTypeId,
+          updateRatings: true
+        })
       });
       const payload = (await response.json()) as ApiResponse<RankingEngineOutput>;
       if (!response.ok || "error" in payload) {
@@ -409,7 +415,7 @@ export function MatchWorkbench({
       setRankingRows(toRankingRows(payload.data));
       setGeneratedAt(payload.data.generatedAt);
       setPublishedSnapshot(undefined);
-      setMessage("排名已基于当前页面比赛列表重新计算。");
+      setMessage("排名已基于当前赛事比赛结果重新计算，并已更新长期积分。");
     } catch (calculateError) {
       setError(calculateError instanceof Error ? calculateError.message : "排名计算失败");
     } finally {

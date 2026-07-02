@@ -65,6 +65,7 @@
 | v5.9 | 2026-07-01 | Codex | 更新阶段 59 公开页和嵌入页生产化细节状态 |
 | v6.0 | 2026-07-01 | Codex | 更新阶段 60 部署前运行形态收口状态 |
 | v6.1 | 2026-07-02 | Codex | 记录 Ranking Engine 迁移为 TypeScript 实现，移除 Python 部署依赖 |
+| v6.2 | 2026-07-02 | Codex | 扩展真实数据导入，支持 matches.csv、xlsx 和导入后长期积分重算 |
 
 ## 重要提醒：文档记录位置
 
@@ -152,7 +153,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 53：单败淘汰晋级同步写入下一轮 `bracket_slots`，真实胜者记录来源比赛，pending bye 进入下一轮签位。
 - 阶段 54：管理端签表视图优先读取 `bracket_slots`，展示固定签位、轮空和晋级来源，并保留 matches 推导兜底。
 - 阶段 55：扩展签表晋级真库验收脚本，用真实浏览器验证 editor/viewer 都能读取管理端签表中的固定签位、轮空和晋级来源。
-- 阶段 58：新增 CSV 真实数据导入工具，支持 dry-run、显式 apply、选手、武器积分和项目参赛名单导入，并通过临时组织真库验收。
+- 阶段 58：新增真实数据导入工具，支持 dry-run、显式 apply、选手、武器积分、项目参赛名单、`matches.csv`、`.xlsx` 导入，并在比赛结果写入后自动重算长期积分。
 - 阶段 59：公开页新增动态 metadata 和 iframe 参数，嵌入页支持主题/高度参数，排名管理页展示公开页复制入口，并扩展公开页真库浏览器验收。
 - 阶段 60：新增部署前检查清单、生产环境变量模板和 `predeploy:verify`，明确 migration 顺序、Vercel/Supabase 环境变量和生产验收边界。
 
@@ -161,7 +162,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 默认 Mock 模式下新增比赛只保存在当前页面状态，刷新页面会丢失。
 - Supabase 模式下新增比赛会通过 `SupabaseRepository` 写入 `matches` 表，并可从真库读取回显。
 - Supabase 模式下排名计算从真库读取选手积分和比赛结果，调用 TypeScript Ranking Engine 返回结果。
-- `/api/rankings/calculate` 默认只计算；显式传入 `persistSnapshot: true` 时会保存 `ranking_snapshots` 和 `ranking_snapshot_items`。
+- `/api/rankings/calculate` 默认只计算；显式传入 `updateRatings: true` 时会从 Repository 真实数据重算并更新 `player_weapon_ratings`；显式传入 `persistSnapshot: true` 时会保存 `ranking_snapshots` 和 `ranking_snapshot_items`。
 - 传入 `publishPageId` 时，Supabase 模式会 upsert 对应 `public_pages` 并指向最新快照。
 - 比赛工作台已区分“重新计算排名”和“发布公开榜单”；发布成功后展示快照 ID 和公开页路径。
 - 比赛工作台已拆分为多个子组件，父组件继续保留业务流程控制。
@@ -203,8 +204,9 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run ranking:supabase:verify` 会以 Supabase 模式创建临时组织和赛事数据，验证真库 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run bracket:slots:verify` 会以 Supabase 模式创建临时三人单败项目，验证初始签表生成会写入 `bracket_slots` 并保留真实 match 数量。
 - `npm run bracket:slots:advance:verify` 会以 Supabase 模式验证生成首轮、完成比赛、生成下一轮、下一轮 slots、真实 match 数量和管理端浏览器签表展示。
-- `npm run data:import -- --dir docs/examples/import --organization-slug hema-ratings-demo` 会校验示例 CSV 并输出 dry-run 导入计划；传入 `--apply` 才会写入真库。
-- `npm run data:import:verify` 会创建临时组织，执行真实 CSV apply 导入，验证选手、武器积分和项目参赛名单写入后清理临时数据。
+- `npm run data:import -- --dir docs/examples/import --organization-slug <organization-slug>` 会校验示例 CSV 并输出 dry-run 导入计划；传入 `--apply` 才会写入真库，且 CSV 中的赛事和比赛项目必须已存在。
+- `npm run data:import -- --file data/import/matches.xlsx --organization-slug <organization-slug> --apply` 可从 `.xlsx` 工作簿导入 `players`、`event_entries`、`matches` 等同名 sheet。
+- `npm run data:import:verify` 会创建临时组织，分别执行真实 CSV 和 `.xlsx` apply 导入，验证比赛结果写入、报名校验路径和长期积分更新后清理临时数据。
 - `npm run public:verify` 会以 Supabase 模式创建临时多武器公开页，验证公开 API、metadata、iframe 参数、嵌入页和浏览器公开页展示后清理临时数据。
 - `npm run auth:browser:verify` 会以 Supabase 模式启动临时服务，用真实 viewer/editor 测试账号验证浏览器登录态、viewer 写权限拒绝、editor 多个真实管理表单提交和行内编辑保存。
 - 公开页和嵌入页的 `AppShell` 不再触发管理端授权上下文，匿名访问不会被重定向到登录页。
