@@ -5,6 +5,7 @@
 | 版本 | 日期 | 作者 | 说明 |
 |------|------|------|------|
 | v0.1 | 2026-07-01 | Codex | 创建部署前检查清单，整理环境变量、迁移顺序和验收命令 |
+| v0.2 | 2026-07-02 | Codex | 补充组织长期榜单和快照 RLS 修复迁移顺序 |
 
 ## 目标
 
@@ -40,6 +41,8 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/202606290003_auth
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/20260630044713_restrict_rls_write_roles.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/20260630124841_event_entries.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/20260701093112_bracket_slots.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/20260701142550_organization_public_rankings.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/20260701145705_organization_ranking_snapshot_rls.sql
 ```
 
 初始演示数据按需执行：
