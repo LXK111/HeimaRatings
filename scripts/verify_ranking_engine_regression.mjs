@@ -1,12 +1,10 @@
-import { spawn } from "node:child_process";
-import { join } from "node:path";
-
-const runnerPath = join(process.cwd(), "scripts", "ranking_engine_runner.py");
+const { calculateRankingEngine } = await import("../lib/ranking-engine/calculators.ts");
 
 async function main() {
   console.log("HEMA Ratings Ranking Engine regression verify");
 
   await verifyFixedRankingOutput();
+  await verifyAllAlgorithms();
   await verifyByeIsNotRankingMatch();
 
   console.log("Ranking Engine regression verify passed.");
@@ -87,38 +85,35 @@ async function verifyByeIsNotRankingMatch() {
   console.log("bye exclusion: ok");
 }
 
-function runRankingEngine(input) {
-  return new Promise((resolve, reject) => {
-    const child = spawn("python3", [runnerPath], {
-      cwd: process.cwd(),
-      stdio: ["pipe", "pipe", "pipe"]
+async function verifyAllAlgorithms() {
+  const algorithms = ["elo", "sdr", "glicko2", "hybrid"];
+  for (const algorithm of algorithms) {
+    const output = await runRankingEngine({
+      algorithm,
+      players: [
+        { id: "p1", name: "Aria", rating: 1500, rd: 220, sigma: 0.2 },
+        { id: "p2", name: "Bryn", rating: 1500, rd: 220, sigma: 0.2 }
+      ],
+      matches: [
+        [
+          { id: "m1", round: 1, player1: "Aria", player2: "Bryn", score1: 10, score2: 4 }
+        ]
+      ]
     });
-    let stdout = "";
-    let stderr = "";
+    assert(output.algorithm === algorithm, `${algorithm} output should keep algorithm`);
+    assert(output.rankings.length === 2, `${algorithm} output should include both players`);
+    assert(findRanking(output, "Aria").wins === 1, `${algorithm} winner should record one win`);
+    assert(findRanking(output, "Bryn").losses === 1, `${algorithm} loser should record one loss`);
+  }
 
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString("utf8");
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr || `Ranking engine exited with code ${code}`));
-        return;
-      }
+  console.log("all algorithms: ok");
+}
 
-      const parsed = JSON.parse(stdout);
-      if (parsed.error) {
-        reject(new Error(parsed.error));
-        return;
-      }
-      resolve(parsed);
-    });
-
-    child.stdin.write(JSON.stringify(input));
-    child.stdin.end();
+async function runRankingEngine(input) {
+  return calculateRankingEngine({
+    tournamentId: "verify",
+    weaponTypeId: "verify-weapon",
+    ...input
   });
 }
 

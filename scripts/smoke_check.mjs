@@ -7,7 +7,6 @@ async function main() {
 
   await checkCommand("node", ["--version"]);
   await checkCommand("npm", ["--version"]);
-  await checkCommand("python3", ["--version"]);
 
   await checkJson("/api/weapons", "weapons", (data) => {
     assertArray(data, "data");

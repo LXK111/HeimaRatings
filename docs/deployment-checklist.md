@@ -6,6 +6,7 @@
 |------|------|------|------|
 | v0.1 | 2026-07-01 | Codex | 创建部署前检查清单，整理环境变量、迁移顺序和验收命令 |
 | v0.2 | 2026-07-02 | Codex | 补充组织长期榜单和快照 RLS 修复迁移顺序 |
+| v0.3 | 2026-07-02 | Codex | 更新 Ranking Engine TypeScript 运行形态，移除 Python 部署要求 |
 
 ## 目标
 
@@ -16,18 +17,13 @@
 - Web 运行时：Next.js App Router。
 - 数据源：生产环境使用 Supabase，设置 `HEIMA_RATINGS_DATA_SOURCE=supabase`。
 - 管理端认证：生产环境保持 `HEIMA_RATINGS_AUTH_REQUIRED=true`。
-- Ranking Engine：当前通过 Node.js 子进程调用本仓库内 Python 算法，部署环境必须能执行 `python3`。
+- Ranking Engine：当前通过 TypeScript 在 Next.js Node 运行时内执行，不依赖 `python3`。
 
-## Python Ranking Engine 风险
+## Ranking Engine 运行形态
 
-当前排名计算依赖 `python3` 命令。如果部署平台不支持从 Next.js 运行时调用 Python 子进程，排名计算接口会失败。
+排名计算已迁移到 `lib/ranking-engine/calculators.ts`，部署到 Vercel 时不需要 Python Runtime，也不需要服务端调用子进程。
 
-上线前必须二选一确认：
-
-- 部署平台允许服务端运行 `python3`，并能访问 `rating-algorithm/` 与 `scripts/ranking_engine_runner.py`。
-- 或者将 Ranking Engine 独立服务化，再调整 `lib/ranking-engine/adapter.ts` 的调用方式。
-
-本阶段不临时重构算法服务，避免在部署前引入未经验证的新运行形态。
+旧版 `rating-algorithm/` 和 `scripts/ranking_engine_runner.py` 暂时保留为算法对照材料，不参与线上请求路径。
 
 ## Supabase DDL 执行顺序
 

@@ -64,6 +64,7 @@
 | v5.8 | 2026-07-01 | Codex | 更新阶段 58 真实数据导入工具状态 |
 | v5.9 | 2026-07-01 | Codex | 更新阶段 59 公开页和嵌入页生产化细节状态 |
 | v6.0 | 2026-07-01 | Codex | 更新阶段 60 部署前运行形态收口状态 |
+| v6.1 | 2026-07-02 | Codex | 记录 Ranking Engine 迁移为 TypeScript 实现，移除 Python 部署依赖 |
 
 ## 重要提醒：文档记录位置
 
@@ -153,13 +154,13 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - 阶段 55：扩展签表晋级真库验收脚本，用真实浏览器验证 editor/viewer 都能读取管理端签表中的固定签位、轮空和晋级来源。
 - 阶段 58：新增 CSV 真实数据导入工具，支持 dry-run、显式 apply、选手、武器积分和项目参赛名单导入，并通过临时组织真库验收。
 - 阶段 59：公开页新增动态 metadata 和 iframe 参数，嵌入页支持主题/高度参数，排名管理页展示公开页复制入口，并扩展公开页真库浏览器验收。
-- 阶段 60：新增部署前检查清单、生产环境变量模板和 `predeploy:verify`，明确 migration 顺序、Vercel/Supabase 环境变量、Python Ranking Engine 风险和生产验收边界。
+- 阶段 60：新增部署前检查清单、生产环境变量模板和 `predeploy:verify`，明确 migration 顺序、Vercel/Supabase 环境变量和生产验收边界。
 
 当前阶段边界：
 
 - 默认 Mock 模式下新增比赛只保存在当前页面状态，刷新页面会丢失。
 - Supabase 模式下新增比赛会通过 `SupabaseRepository` 写入 `matches` 表，并可从真库读取回显。
-- Supabase 模式下排名计算从真库读取选手积分和比赛结果，调用 Python Ranking Engine 返回结果。
+- Supabase 模式下排名计算从真库读取选手积分和比赛结果，调用 TypeScript Ranking Engine 返回结果。
 - `/api/rankings/calculate` 默认只计算；显式传入 `persistSnapshot: true` 时会保存 `ranking_snapshots` 和 `ranking_snapshot_items`。
 - 传入 `publishPageId` 时，Supabase 模式会 upsert 对应 `public_pages` 并指向最新快照。
 - 比赛工作台已区分“重新计算排名”和“发布公开榜单”；发布成功后展示快照 ID 和公开页路径。
@@ -197,7 +198,7 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 - `npm run auth:api:verify` 已覆盖项目参赛名单读取、viewer 签表生成拒绝和 editor 项目级排名快照写入。
 - 比赛录入页的公开榜单发布目标来自当前组织公开页列表；无公开页时保留 `demo` 兜底。
 - `npm run browser:verify` 会构建生产包、启动临时服务，并用浏览器验证核心页面和发布目标控件。
-- `npm run ranking:verify` 会直接调用 Python Ranking Engine，验证固定排名输入输出和轮空排除边界。
+- `npm run ranking:verify` 会直接调用 TypeScript Ranking Engine，验证固定排名输入输出、四种算法基础输出和轮空排除边界。
 - `npm run ranking:input:verify` 会启动 Mock 临时服务，验证 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run ranking:supabase:verify` 会以 Supabase 模式创建临时组织和赛事数据，验证真库 API/Repository 构造 Ranking Engine 输入时只包含真实比赛。
 - `npm run bracket:slots:verify` 会以 Supabase 模式创建临时三人单败项目，验证初始签表生成会写入 `bracket_slots` 并保留真实 match 数量。
@@ -222,13 +223,12 @@ HEMA Ratings 是一个 HEMA 排名网站 MVP Web 工程，用于记录赛事、�
 
 - 扩展公开页 payload，提供每个武器榜单各自的算法和生成时间。
 - 增加接口测试和 Repository 输入构造回归测试。
-- 部署前确认运行环境是否支持 `python3`，或将 Python Ranking Engine 独立服务化。
+- 旧版 Python Ranking Engine 目录暂保留为算法对照，线上排名计算已切换为 TypeScript 实现。
 
 ## 编译运行依赖环境
 
 - **Node.js**: >= 18.18.0（Next.js 要求）
 - **npm**: >= 9.0.0
-- **Python 3**: >= 3.8.0（排名算法依赖，运行时需要 `python3` 命令可用）
 - **数据库**: 默认无需配置（使用 Mock Repository）；Supabase 模式需要配置 Supabase PostgreSQL
 
 ## 数据源配置
@@ -338,7 +338,7 @@ HEIMA_RATINGS_BROWSER_EXECUTABLE_PATH="/path/to/chrome"
 DATABASE_URL="postgresql://..."
 ```
 
-**注意**：排名计算功能依赖本机 `python3`；若环境中 Python 命令不是 `python3`（如 Windows 下为 `python`），需修改 `lib/ranking-engine/adapter.ts` 中的 spawn 命令。
+**注意**：排名计算功能已迁移为 TypeScript 实现，部署环境不再需要 `python3`。
 
 部署前请查看 `docs/deployment-checklist.md`，并参考 `.env.production.example` 配置生产环境变量。`DATABASE_URL` 仅用于本地执行 DDL 和 `npm run db:verify`，默认不需要配置到 Vercel。
 
@@ -353,6 +353,6 @@ HeimaRatings/
   lib/                    领域类型、数据库类型、服务端仓储、Ranking Engine 适配
   lib/server/repositories/ Repository 接口、Mock 实现、Supabase 实现和工厂
   lib/server/supabase/    服务端 Supabase client 初始化
-  rating-algorithm/       Elo、SDR、Glicko-2、Hybrid 四种排名算法实现
-  scripts/                Python Ranking Engine runner
+  rating-algorithm/       旧版 Python 排名算法实现，保留为迁移对照
+  scripts/                验收脚本、数据导入脚本和旧版 Python runner
 ```
